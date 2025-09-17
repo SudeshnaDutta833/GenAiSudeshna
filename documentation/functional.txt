@@ -1,56 +1,56 @@
-Based on the provided Business Requirement Document (BRD), I will create a detailed Functional Requirement Document (FRD) adhering to the "Coding Requirements" section. Here are the functional requirements in bullet points:
+Here is the detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD):
 
-* **FR-DC-001: Identify Duplicates in Customers and Products Tables**
-	+ Title: Identify Duplicates in Customers and Products Tables
-	+ Description: The system must identify duplicates in the bronze layer of customers and products tables and update the same in bronze (only for historical data).
-	+ Preconditions: 
-		- Data is available in the bronze layer of customers and products tables.
-		- Data is properly formatted and not NULL or blank for unique customer/product IDs.
-	+ Main Flow / Functional Steps:
-		1. Filter data to find probable duplicates.
-		2. Confirm duplicates by additional checks such as fuzzy score of names and address in customers and item names in products.
-		3. Update the bronze layer with the identified duplicates.
+**FR-APM-001: Ingest Historical APM Sales Orders Data**
 
-* **FR-DC-002: Update Bronze Table for Sales Historical Data**
-	+ Title: Update Bronze Table for Sales Historical Data
-	+ Description: The system must update the bronze table for sales historical data based on anomalies.
-	+ Preconditions: 
-		- Data is available in the bronze layer of sales table.
-		- Data is properly formatted.
-	+ Main Flow / Functional Steps:
-		1. Identify anomalies in sales data such as Abnormal Qty<1 or Price<1.
-		2. Check for deviation of SKU prices by 20% of median prices.
-		3. Update the bronze layer with the identified anomalies.
+* **Title:** Ingest Historical APM Sales Orders Data
+* **Description:** The system must ingest 5 years of historical APM sales orders data from Edwards JDA file into Azure Databricks.
+* **Preconditions:**
+	+ Edwards JDA file is available in CSV format.
+	+ Sales Org, Region, and Plant Mapping file is available in CSV format.
+	+ Azure Databricks is configured and available.
+* **Main Flow / Functional Steps:**
+	1. System ingests Edwards JDA file into Bronze layer as-is.
+	2. System ingests Sales Org, Region, and Plant Mapping file into Bronze layer as-is.
+	3. System applies transformations to the ingested data based on the mapping document provided in DPS.
+	4. System stores the transformed data in the Silver layer under the s_isc schema.
+	5. System creates an external view in the g_external schema.
+	6. System generates a CSV file named 5Y_JDA_APM_SCM_demand_history.csv from the transformed data.
+	7. System places the CSV file in the designated ADLS location for SCM consumption.
 
-* **FR-DC-003: Handle Renamed Columns**
-	+ Title: Handle Renamed Columns
-	+ Description: The system must handle the renamed columns in Hylem tables.
-	+ Preconditions: 
-		- Data is available in the Hylem tables.
-		- Columns are properly renamed.
-	+ Main Flow / Functional Steps:
-		1. Map the renamed columns to their new names.
-		2. Use the new column names in the data processing.
+**FR-APM-002: Transform Historical APM Sales Orders Data**
 
-* **FR-DC-004: Process Data from Salesforce**
-	+ Title: Process Data from Salesforce
-	+ Description: The system must process data from Salesforce via Azure Data Factory (ADF) pipeline.
-	+ Preconditions: 
-		- Data is available from Salesforce.
-		- ADF pipeline is configured.
-	+ Main Flow / Functional Steps:
-		1. Extract data from Salesforce.
-		2. Send data to ADLS Storage via ADF pipeline.
-		3. Load data into Databricks tables in the Bronze Layer.
+* **Title:** Transform Historical APM Sales Orders Data
+* **Description:** The system must apply transformations to the ingested historical APM sales orders data based on the mapping document.
+* **Preconditions:**
+	+ Ingested data is available in Bronze layer.
+	+ Mapping document is available and up-to-date.
+* **Main Flow / Functional Steps:**
+	1. System retrieves the ingested data from Bronze layer.
+	2. System applies transformations based on the mapping document.
+	3. System stores the transformed data in the Silver layer.
 
-* **FR-DC-005: Populate Silver Layer**
-	+ Title: Populate Silver Layer
-	+ Description: The system must populate tables in the Silver Layer for further transformations.
-	+ Preconditions: 
-		- Data is available in the Bronze Layer.
-		- Data is processed and transformed.
-	+ Main Flow / Functional Steps:
-		1. Process data from the Bronze Layer.
-		2. Populate tables in the Silver Layer.
+**FR-APM-003: Export Transformed Data to SCM**
 
-These functional requirements are based on the "Coding Requirements" section of the provided BRD. They provide a detailed explanation of the business functionality or feature required, preconditions, and step-by-step explanation of how the function behaves.
+* **Title:** Export Transformed Data to SCM
+* **Description:** The system must export the transformed data to SCM in CSV format.
+* **Preconditions:**
+	+ Transformed data is available in Silver layer.
+	+ ADLS location is configured and available for SCM consumption.
+* **Main Flow / Functional Steps:**
+	1. System generates a CSV file from the transformed data.
+	2. System places the CSV file in the designated ADLS location.
+	3. System triggers MFT to pick up the file and deliver it to SCM.
+
+**FR-APM-004: Optimize and Secure Data**
+
+* **Title:** Optimize and Secure Data
+* **Description:** The system must optimize and secure the ingested and transformed data.
+* **Preconditions:**
+	+ Data is ingested and transformed.
+	+ Azure Databricks is configured and available.
+* **Main Flow / Functional Steps:**
+	1. System runs regular optimization scripts to maintain table performance.
+	2. System restricts data access to authorized user groups.
+	3. System archives data for 15 days on Azure Data Lake Storage (ADLS).
+
+Let me know if you need any further clarification or if there's anything else I can help you with!

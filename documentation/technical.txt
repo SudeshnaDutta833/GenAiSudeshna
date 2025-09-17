@@ -1,181 +1,117 @@
 Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-* **TR-DC-001: Identify Duplicates in Customers and Products Tables**
-	+ Related Functional Requirement(s): FR-DC-001
-	+ Objective: Implement a PySpark job to identify duplicates in customers and products tables and update the bronze layer.
-	+ Target Cluster Configuration:
-		- Cluster Name: Bronze Layer Cluster
-		- Databricks Runtime Version: 7.3.x-scala2.12
+* **TR-APM-001: Ingest Historical APM Sales Orders Data**
+	+ **Related Functional Requirement(s):** FR-APM-001
+	+ **Objective:** Implement a PySpark job to ingest Edwards JDA file and Sales Org, Region, and Plant Mapping file into Azure Databricks Bronze layer.
+	+ **Target Cluster Configuration:**
+		- Cluster Name: APM_Ingestion_Cluster
+		- Databricks Runtime Version: 7.3 LTS
 		- Node Type: Standard_DS3_v2
-		- Driver Node: 1 x Standard_DS3_v2
-		- Worker Nodes: 2-5 x Standard_DS3_v2
+		- Driver Node: Standard_DS3_v2
+		- Worker Nodes: 2-4 (autoscaling)
 		- Autoscaling: Enabled
 		- Auto Termination: 30 minutes
-		- Libraries Installed: spark-dbutils, fuzzywuzzy
-	+ Source Data Details:
-		- Dataset Name: customers_table
-		- Location (Path/Table): adls://bronze_layer/customers_table
-		- Format: Delta Lake
-		- Description: Customers data stored in bronze layer
-		- Dataset Name: products_table
-		- Location (Path/Table): adls://bronze_layer/products_table
-		- Format: Delta Lake
-		- Description: Products data stored in bronze layer
-	+ Target Data Details:
-		- Output Name: updated_customers_table
-		- Location: adls://bronze_layer/customers_table
-		- Format: Delta Lake
-		- Description: Updated customers data with duplicates identified
-		- Output Name: updated_products_table
-		- Location: adls://bronze_layer/products_table
-		- Format: Delta Lake
-		- Description: Updated products data with duplicates identified
-	+ Job Flow / Pipeline Stages:
-		1. Read data from customers_table and products_table
-		2. Apply duplicate detection logic using fuzzywuzzy
-		3. Update bronze layer with identified duplicates
-	+ Data Transformations / Business Logic:
-		- Step: Filter data to find probable duplicates
-		- Description: Apply fuzzy matching on customer names and product names
-		- Transformation Logic: Use fuzzywuzzy library to calculate similarity score
-		- Step: Confirm duplicates by additional checks
-		- Description: Verify duplicates by checking address and item names
-		- Transformation Logic: Use PySpark to apply additional checks
-	+ Error Handling and Logging:
-		- Log errors and exceptions to a dedicated log table
-		- Implement retry mechanism for failed tasks
+		- Libraries Installed: pandas, numpy, pyspark
+	+ **Source Data Details:**
+		- Edwards JDA file: ADLS location, CSV format, contains historical APM sales orders data
+		- Sales Org, Region, and Plant Mapping file: ADLS location, CSV format, contains mapping data
+	+ **Target Data Details:**
+		- Bronze layer: ADLS location, Delta format, stores ingested data as-is
+		- Silver layer: ADLS location, Delta format, stores transformed data
+		- External view: g_external schema, view format, provides transformed data to SCM
+		- CSV file: ADLS location, CSV format, contains transformed data for SCM consumption
+	+ **Job Flow / Pipeline Stages:**
+		1. Ingest Edwards JDA file into Bronze layer
+		2. Ingest Sales Org, Region, and Plant Mapping file into Bronze layer
+		3. Apply transformations to ingested data
+		4. Store transformed data in Silver layer
+		5. Create external view in g_external schema
+		6. Generate CSV file for SCM consumption
+	+ **Data Transformations / Business Logic:**
+		1. Retrieve ingested data from Bronze layer
+		2. Apply transformations based on mapping document
+		3. Store transformed data in Silver layer
+	+ **Error Handling and Logging:**
+		- Log errors and exceptions in a designated log file
+		- Notify administrators of job failures via email
 
-* **TR-DC-002: Update Bronze Table for Sales Historical Data**
-	+ Related Functional Requirement(s): FR-DC-002
-	+ Objective: Implement a PySpark job to update bronze table for sales historical data based on anomalies.
-	+ Target Cluster Configuration:
-		- Cluster Name: Bronze Layer Cluster
-		- Databricks Runtime Version: 7.3.x-scala2.12
+* **TR-APM-002: Transform Historical APM Sales Orders Data**
+	+ **Related Functional Requirement(s):** FR-APM-002
+	+ **Objective:** Implement a PySpark job to apply transformations to ingested historical APM sales orders data.
+	+ **Target Cluster Configuration:**
+		- Cluster Name: APM_Transformation_Cluster
+		- Databricks Runtime Version: 7.3 LTS
 		- Node Type: Standard_DS3_v2
-		- Driver Node: 1 x Standard_DS3_v2
-		- Worker Nodes: 2-5 x Standard_DS3_v2
+		- Driver Node: Standard_DS3_v2
+		- Worker Nodes: 2-4 (autoscaling)
 		- Autoscaling: Enabled
 		- Auto Termination: 30 minutes
-		- Libraries Installed: spark-dbutils
-	+ Source Data Details:
-		- Dataset Name: sales_table
-		- Location (Path/Table): adls://bronze_layer/sales_table
-		- Format: Delta Lake
-		- Description: Sales data stored in bronze layer
-	+ Target Data Details:
-		- Output Name: updated_sales_table
-		- Location: adls://bronze_layer/sales_table
-		- Format: Delta Lake
-		- Description: Updated sales data with anomalies identified
-	+ Job Flow / Pipeline Stages:
-		1. Read data from sales_table
-		2. Apply anomaly detection logic
-		3. Update bronze layer with identified anomalies
-	+ Data Transformations / Business Logic:
-		- Step: Identify anomalies in sales data
-		- Description: Check for Abnormal Qty<1 or Price<1
-		- Transformation Logic: Use PySpark to apply checks
-		- Step: Check for deviation of SKU prices
-		- Description: Verify if SKU prices deviate by 20% of median prices
-		- Transformation Logic: Use PySpark to calculate median prices and apply checks
-	+ Error Handling and Logging:
-		- Log errors and exceptions to a dedicated log table
-		- Implement retry mechanism for failed tasks
+		- Libraries Installed: pandas, numpy, pyspark
+	+ **Source Data Details:**
+		- Ingested data: Bronze layer, Delta format, contains historical APM sales orders data
+	+ **Target Data Details:**
+		- Silver layer: ADLS location, Delta format, stores transformed data
+	+ **Job Flow / Pipeline Stages:**
+		1. Retrieve ingested data from Bronze layer
+		2. Apply transformations based on mapping document
+		3. Store transformed data in Silver layer
+	+ **Data Transformations / Business Logic:**
+		1. Apply transformations based on mapping document
+	+ **Error Handling and Logging:**
+		- Log errors and exceptions in a designated log file
+		- Notify administrators of job failures via email
 
-* **TR-DC-003: Handle Renamed Columns**
-	+ Related Functional Requirement(s): FR-DC-003
-	+ Objective: Implement a PySpark job to handle renamed columns in Hylem tables.
-	+ Target Cluster Configuration:
-		- Cluster Name: Hylem Cluster
-		- Databricks Runtime Version: 7.3.x-scala2.12
+* **TR-APM-003: Export Transformed Data to SCM**
+	+ **Related Functional Requirement(s):** FR-APM-003
+	+ **Objective:** Implement a PySpark job to export transformed data to SCM in CSV format.
+	+ **Target Cluster Configuration:**
+		- Cluster Name: APM_Export_Cluster
+		- Databricks Runtime Version: 7.3 LTS
 		- Node Type: Standard_DS3_v2
-		- Driver Node: 1 x Standard_DS3_v2
-		- Worker Nodes: 2-5 x Standard_DS3_v2
+		- Driver Node: Standard_DS3_v2
+		- Worker Nodes: 2-4 (autoscaling)
 		- Autoscaling: Enabled
 		- Auto Termination: 30 minutes
-		- Libraries Installed: spark-dbutils
-	+ Source Data Details:
-		- Dataset Name: hylem_table
-		- Location (Path/Table): adls://hylem_layer/hylem_table
-		- Format: Delta Lake
-		- Description: Hylem data stored in Hylem layer
-	+ Target Data Details:
-		- Output Name: updated_hylem_table
-		- Location: adls://hylem_layer/hylem_table
-		- Format: Delta Lake
-		- Description: Updated Hylem data with renamed columns handled
-	+ Job Flow / Pipeline Stages:
-		1. Read data from hylem_table
-		2. Apply column renaming logic
-		3. Update Hylem layer with renamed columns
-	+ Data Transformations / Business Logic:
-		- Step: Map renamed columns to new names
-		- Description: Use metadata to map old column names to new names
-		- Transformation Logic: Use PySpark to apply column renaming
-	+ Error Handling and Logging:
-		- Log errors and exceptions to a dedicated log table
-		- Implement retry mechanism for failed tasks
+		- Libraries Installed: pandas, numpy, pyspark
+	+ **Source Data Details:**
+		- Transformed data: Silver layer, Delta format, contains transformed APM sales orders data
+	+ **Target Data Details:**
+		- CSV file: ADLS location, CSV format, contains transformed data for SCM consumption
+	+ **Job Flow / Pipeline Stages:**
+		1. Generate CSV file from transformed data
+		2. Place CSV file in designated ADLS location
+		3. Trigger MFT to pick up file and deliver to SCM
+	+ **Data Transformations / Business Logic:**
+		1. Generate CSV file from transformed data
+	+ **Error Handling and Logging:**
+		- Log errors and exceptions in a designated log file
+		- Notify administrators of job failures via email
 
-* **TR-DC-004: Process Data from Salesforce**
-	+ Related Functional Requirement(s): FR-DC-004
-	+ Objective: Implement an Azure Data Factory (ADF) pipeline to process data from Salesforce.
-	+ Target Cluster Configuration:
-		- Cluster Name: ADF Cluster
-		- ADF Version: Latest
-		- Linked Service: Salesforce Linked Service
-		- Integration Runtime: Azure IR
-	+ Source Data Details:
-		- Dataset Name: salesforce_data
-		- Location (Path/Table): Salesforce API
-		- Format: JSON
-		- Description: Salesforce data retrieved via API
-	+ Target Data Details:
-		- Output Name: salesforce_data_in_adls
-		- Location: adls://bronze_layer/salesforce_data
-		- Format: JSON
-		- Description: Salesforce data stored in ADLS
-	+ Job Flow / Pipeline Stages:
-		1. Extract data from Salesforce using ADF pipeline
-		2. Send data to ADLS Storage
-		3. Load data into Databricks tables in Bronze Layer
-	+ Data Transformations / Business Logic:
-		- Step: Extract data from Salesforce
-		- Description: Use Salesforce API to retrieve data
-		- Transformation Logic: Use ADF to extract data
-	+ Error Handling and Logging:
-		- Log errors and exceptions to a dedicated log table
-		- Implement retry mechanism for failed tasks
-
-* **TR-DC-005: Populate Silver Layer**
-	+ Related Functional Requirement(s): FR-DC-005
-	+ Objective: Implement a PySpark job to populate tables in the Silver Layer.
-	+ Target Cluster Configuration:
-		- Cluster Name: Silver Layer Cluster
-		- Databricks Runtime Version: 7.3.x-scala2.12
+* **TR-APM-004: Optimize and Secure Data**
+	+ **Related Functional Requirement(s):** FR-APM-004
+	+ **Objective:** Implement optimization and security measures for ingested and transformed data.
+	+ **Target Cluster Configuration:**
+		- Cluster Name: APM_Optimization_Cluster
+		- Databricks Runtime Version: 7.3 LTS
 		- Node Type: Standard_DS3_v2
-		- Driver Node: 1 x Standard_DS3_v2
-		- Worker Nodes: 2-5 x Standard_DS3_v2
+		- Driver Node: Standard_DS3_v2
+		- Worker Nodes: 2-4 (autoscaling)
 		- Autoscaling: Enabled
 		- Auto Termination: 30 minutes
-		- Libraries Installed: spark-dbutils
-	+ Source Data Details:
-		- Dataset Name: bronze_layer_data
-		- Location (Path/Table): adls://bronze_layer/
-		- Format: Delta Lake
-		- Description: Data stored in Bronze Layer
-	+ Target Data Details:
-		- Output Name: silver_layer_data
-		- Location: adls://silver_layer/
-		- Format: Delta Lake
-		- Description: Data stored in Silver Layer
-	+ Job Flow / Pipeline Stages:
-		1. Read data from Bronze Layer
-		2. Apply transformations and business logic
-		3. Populate Silver Layer with transformed data
-	+ Data Transformations / Business Logic:
-		- Step: Process data from Bronze Layer
-		- Description: Apply transformations and business logic
-		- Transformation Logic: Use PySpark to apply transformations
-	+ Error Handling and Logging:
-		- Log errors and exceptions to a dedicated log table
-		- Implement retry mechanism for failed tasks
+		- Libraries Installed: pandas, numpy, pyspark
+	+ **Source Data Details:**
+		- Ingested and transformed data: Bronze and Silver layers, Delta format
+	+ **Target Data Details:**
+		- Optimized data: Silver layer, Delta format
+		- Archived data: ADLS location, Delta format
+	+ **Job Flow / Pipeline Stages:**
+		1. Run regular optimization scripts to maintain table performance
+		2. Restrict data access to authorized user groups
+		3. Archive data for 15 days on Azure Data Lake Storage (ADLS)
+	+ **Data Transformations / Business Logic:**
+		1. Optimize data storage and retrieval
+		2. Implement data access controls
+		3. Archive data according to retention policy
+	+ **Error Handling and Logging:**
+		- Log errors and exceptions in a designated log file
+		- Notify administrators of job failures via email
