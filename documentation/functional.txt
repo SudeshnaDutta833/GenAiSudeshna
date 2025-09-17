@@ -1,0 +1,56 @@
+Based on the provided Business Requirement Document (BRD), I will create a detailed Functional Requirement Document (FRD) adhering to the "Coding Requirements" section. Here are the functional requirements in bullet points:
+
+* **FR-DC-001: Identify Duplicates in Customers and Products Tables**
+	+ Title: Identify Duplicates in Customers and Products Tables
+	+ Description: The system must identify duplicates in the bronze layer of customers and products tables and update the same in bronze (only for historical data).
+	+ Preconditions: 
+		- Data is available in the bronze layer of customers and products tables.
+		- Data is properly formatted and not NULL or blank for unique customer/product IDs.
+	+ Main Flow / Functional Steps:
+		1. Filter data to find probable duplicates.
+		2. Confirm duplicates by additional checks such as fuzzy score of names and address in customers and item names in products.
+		3. Update the bronze layer with the identified duplicates.
+
+* **FR-DC-002: Update Bronze Table for Sales Historical Data**
+	+ Title: Update Bronze Table for Sales Historical Data
+	+ Description: The system must update the bronze table for sales historical data based on anomalies.
+	+ Preconditions: 
+		- Data is available in the bronze layer of sales table.
+		- Data is properly formatted.
+	+ Main Flow / Functional Steps:
+		1. Identify anomalies in sales data such as Abnormal Qty<1 or Price<1.
+		2. Check for deviation of SKU prices by 20% of median prices.
+		3. Update the bronze layer with the identified anomalies.
+
+* **FR-DC-003: Handle Renamed Columns**
+	+ Title: Handle Renamed Columns
+	+ Description: The system must handle the renamed columns in Hylem tables.
+	+ Preconditions: 
+		- Data is available in the Hylem tables.
+		- Columns are properly renamed.
+	+ Main Flow / Functional Steps:
+		1. Map the renamed columns to their new names.
+		2. Use the new column names in the data processing.
+
+* **FR-DC-004: Process Data from Salesforce**
+	+ Title: Process Data from Salesforce
+	+ Description: The system must process data from Salesforce via Azure Data Factory (ADF) pipeline.
+	+ Preconditions: 
+		- Data is available from Salesforce.
+		- ADF pipeline is configured.
+	+ Main Flow / Functional Steps:
+		1. Extract data from Salesforce.
+		2. Send data to ADLS Storage via ADF pipeline.
+		3. Load data into Databricks tables in the Bronze Layer.
+
+* **FR-DC-005: Populate Silver Layer**
+	+ Title: Populate Silver Layer
+	+ Description: The system must populate tables in the Silver Layer for further transformations.
+	+ Preconditions: 
+		- Data is available in the Bronze Layer.
+		- Data is processed and transformed.
+	+ Main Flow / Functional Steps:
+		1. Process data from the Bronze Layer.
+		2. Populate tables in the Silver Layer.
+
+These functional requirements are based on the "Coding Requirements" section of the provided BRD. They provide a detailed explanation of the business functionality or feature required, preconditions, and step-by-step explanation of how the function behaves.
