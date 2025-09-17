@@ -1,117 +1,166 @@
 Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-* **TR-APM-001: Ingest Historical APM Sales Orders Data**
-	+ **Related Functional Requirement(s):** FR-APM-001
-	+ **Objective:** Implement a PySpark job to ingest Edwards JDA file and Sales Org, Region, and Plant Mapping file into Azure Databricks Bronze layer.
-	+ **Target Cluster Configuration:**
-		- Cluster Name: APM_Ingestion_Cluster
-		- Databricks Runtime Version: 7.3 LTS
-		- Node Type: Standard_DS3_v2
-		- Driver Node: Standard_DS3_v2
-		- Worker Nodes: 2-4 (autoscaling)
-		- Autoscaling: Enabled
-		- Auto Termination: 30 minutes
-		- Libraries Installed: pandas, numpy, pyspark
-	+ **Source Data Details:**
-		- Edwards JDA file: ADLS location, CSV format, contains historical APM sales orders data
-		- Sales Org, Region, and Plant Mapping file: ADLS location, CSV format, contains mapping data
-	+ **Target Data Details:**
-		- Bronze layer: ADLS location, Delta format, stores ingested data as-is
-		- Silver layer: ADLS location, Delta format, stores transformed data
-		- External view: g_external schema, view format, provides transformed data to SCM
-		- CSV file: ADLS location, CSV format, contains transformed data for SCM consumption
-	+ **Job Flow / Pipeline Stages:**
-		1. Ingest Edwards JDA file into Bronze layer
-		2. Ingest Sales Org, Region, and Plant Mapping file into Bronze layer
-		3. Apply transformations to ingested data
-		4. Store transformed data in Silver layer
-		5. Create external view in g_external schema
-		6. Generate CSV file for SCM consumption
-	+ **Data Transformations / Business Logic:**
-		1. Retrieve ingested data from Bronze layer
-		2. Apply transformations based on mapping document
-		3. Store transformed data in Silver layer
-	+ **Error Handling and Logging:**
-		- Log errors and exceptions in a designated log file
-		- Notify administrators of job failures via email
+### TR-DPS-001
+* Related Functional Requirement(s): FR-DPS-001
+* Objective: Implement a PySpark job to ingest APM 5-Year Historical Sales Order Data into Azure Databricks.
 
-* **TR-APM-002: Transform Historical APM Sales Orders Data**
-	+ **Related Functional Requirement(s):** FR-APM-002
-	+ **Objective:** Implement a PySpark job to apply transformations to ingested historical APM sales orders data.
-	+ **Target Cluster Configuration:**
-		- Cluster Name: APM_Transformation_Cluster
-		- Databricks Runtime Version: 7.3 LTS
-		- Node Type: Standard_DS3_v2
-		- Driver Node: Standard_DS3_v2
-		- Worker Nodes: 2-4 (autoscaling)
-		- Autoscaling: Enabled
-		- Auto Termination: 30 minutes
-		- Libraries Installed: pandas, numpy, pyspark
-	+ **Source Data Details:**
-		- Ingested data: Bronze layer, Delta format, contains historical APM sales orders data
-	+ **Target Data Details:**
-		- Silver layer: ADLS location, Delta format, stores transformed data
-	+ **Job Flow / Pipeline Stages:**
-		1. Retrieve ingested data from Bronze layer
-		2. Apply transformations based on mapping document
-		3. Store transformed data in Silver layer
-	+ **Data Transformations / Business Logic:**
-		1. Apply transformations based on mapping document
-	+ **Error Handling and Logging:**
-		- Log errors and exceptions in a designated log file
-		- Notify administrators of job failures via email
+#### Target Cluster Configuration:
+* Cluster Name: DPS-Historical-Data-Ingestion
+* Databricks Runtime Version: 7.3 LTS
+* Node Type: Standard_DS3_v2
+* Driver Node: Standard_DS3_v2
+* Worker Nodes: 2-5 (autoscaling)
+* Autoscaling: Enabled
+* Auto Termination: 30 minutes
+* Libraries Installed: spark-xml, delta-lake
 
-* **TR-APM-003: Export Transformed Data to SCM**
-	+ **Related Functional Requirement(s):** FR-APM-003
-	+ **Objective:** Implement a PySpark job to export transformed data to SCM in CSV format.
-	+ **Target Cluster Configuration:**
-		- Cluster Name: APM_Export_Cluster
-		- Databricks Runtime Version: 7.3 LTS
-		- Node Type: Standard_DS3_v2
-		- Driver Node: Standard_DS3_v2
-		- Worker Nodes: 2-4 (autoscaling)
-		- Autoscaling: Enabled
-		- Auto Termination: 30 minutes
-		- Libraries Installed: pandas, numpy, pyspark
-	+ **Source Data Details:**
-		- Transformed data: Silver layer, Delta format, contains transformed APM sales orders data
-	+ **Target Data Details:**
-		- CSV file: ADLS location, CSV format, contains transformed data for SCM consumption
-	+ **Job Flow / Pipeline Stages:**
-		1. Generate CSV file from transformed data
-		2. Place CSV file in designated ADLS location
-		3. Trigger MFT to pick up file and deliver to SCM
-	+ **Data Transformations / Business Logic:**
-		1. Generate CSV file from transformed data
-	+ **Error Handling and Logging:**
-		- Log errors and exceptions in a designated log file
-		- Notify administrators of job failures via email
+#### Source Data Details:
+* APM 5-Year Demand History flat files: SFTP server location, CSV format, Historical sales order data for the last 5 years.
+* APM Regional mapping file: SFTP server location, CSV format, Mapping data for regional, sales orgs, and plant.
 
-* **TR-APM-004: Optimize and Secure Data**
-	+ **Related Functional Requirement(s):** FR-APM-004
-	+ **Objective:** Implement optimization and security measures for ingested and transformed data.
-	+ **Target Cluster Configuration:**
-		- Cluster Name: APM_Optimization_Cluster
-		- Databricks Runtime Version: 7.3 LTS
-		- Node Type: Standard_DS3_v2
-		- Driver Node: Standard_DS3_v2
-		- Worker Nodes: 2-4 (autoscaling)
-		- Autoscaling: Enabled
-		- Auto Termination: 30 minutes
-		- Libraries Installed: pandas, numpy, pyspark
-	+ **Source Data Details:**
-		- Ingested and transformed data: Bronze and Silver layers, Delta format
-	+ **Target Data Details:**
-		- Optimized data: Silver layer, Delta format
-		- Archived data: ADLS location, Delta format
-	+ **Job Flow / Pipeline Stages:**
-		1. Run regular optimization scripts to maintain table performance
-		2. Restrict data access to authorized user groups
-		3. Archive data for 15 days on Azure Data Lake Storage (ADLS)
-	+ **Data Transformations / Business Logic:**
-		1. Optimize data storage and retrieval
-		2. Implement data access controls
-		3. Archive data according to retention policy
-	+ **Error Handling and Logging:**
-		- Log errors and exceptions in a designated log file
-		- Notify administrators of job failures via email
+#### Target Data Details:
+* Bronze Layer: Azure Databricks, Parquet format, Raw historical sales order data.
+* Silver Layer: Azure Databricks, Parquet format, Transformed historical sales order data.
+* Gold Layer: Azure Databricks, Parquet format, Filtered and aggregated historical sales order data.
+
+#### Job Flow / Pipeline Stages:
+* Connect to SFTP server to access flat files.
+* Load flat files into Bronze Layer.
+* Create lookup table based on regional mapping file.
+* Join historical data with regional mapping table.
+* Apply transformations based on HISTSTREAM column.
+* Populate Sales Organization, Region, Sales Office, and Plant fields.
+* Store transformed data in Silver Layer.
+* Filter and aggregate data for consumption and store in Gold Layer.
+
+#### Data Transformations / Business Logic:
+* Step 1: Load flat files into Bronze Layer.
+	+ Transformation Logic: Use PySpark to read CSV files and write to Parquet format.
+* Step 2: Create lookup table based on regional mapping file.
+	+ Transformation Logic: Use PySpark to read CSV file and create a lookup table.
+* Step 3: Join historical data with regional mapping table.
+	+ Transformation Logic: Use PySpark to join historical data with lookup table on product and LOC.
+* Step 4: Apply transformations based on HISTSTREAM column.
+	+ Transformation Logic: Use PySpark to determine Demand quantity and Return quantity based on HISTSTREAM column.
+
+#### Error Handling and Logging:
+* Use try-except blocks to catch and log exceptions.
+* Log errors to a designated log file.
+* Implement retry mechanism for failed tasks.
+
+### TR-DPS-002
+* Related Functional Requirement(s): FR-DPS-002
+* Objective: Implement a PySpark job to ingest APM Sales Order Delta Data from ECC System into Azure Databricks.
+
+#### Target Cluster Configuration:
+* Cluster Name: DPS-Delta-Data-Ingestion
+* Databricks Runtime Version: 7.3 LTS
+* Node Type: Standard_DS3_v2
+* Driver Node: Standard_DS3_v2
+* Worker Nodes: 2-5 (autoscaling)
+* Autoscaling: Enabled
+* Auto Termination: 30 minutes
+* Libraries Installed: spark-xml, delta-lake
+
+#### Source Data Details:
+* ECC sales order delta data: ECC system, CSV format, Delta sales order data.
+* Regional mapping file: SFTP server location, CSV format, Mapping data for regional, sales orgs, and plant.
+
+#### Target Data Details:
+* Bronze Layer: Azure Databricks, Parquet format, Raw delta sales order data.
+* Silver Layer: Azure Databricks, Parquet format, Transformed delta sales order data.
+* Gold Layer: Azure Databricks, Parquet format, Filtered and aggregated delta sales order data.
+
+#### Job Flow / Pipeline Stages:
+* Ingest ECC sales order delta data into Bronze Layer.
+* Create or update lookup table based on regional mapping file.
+* Join delta data with regional mapping table.
+* Populate Planning partner based on Sales Doc Type.
+* Apply necessary transformations.
+* Store transformed data in Silver Layer.
+* Filter and aggregate data for consumption and store in Gold Layer.
+
+#### Data Transformations / Business Logic:
+* Step 1: Ingest ECC sales order delta data into Bronze Layer.
+	+ Transformation Logic: Use PySpark to read CSV files and write to Parquet format.
+* Step 2: Create or update lookup table based on regional mapping file.
+	+ Transformation Logic: Use PySpark to read CSV file and create or update a lookup table.
+
+#### Error Handling and Logging:
+* Use try-except blocks to catch and log exceptions.
+* Log errors to a designated log file.
+* Implement retry mechanism for failed tasks.
+
+### TR-DPS-003
+* Related Functional Requirement(s): FR-DPS-003
+* Objective: Configure Attunity for CDC to ingest ECC sales order delta data and schedule data ingestion.
+
+#### Target Cluster Configuration:
+* Not applicable.
+
+#### Source Data Details:
+* ECC sales order delta data: ECC system, CDC format, Delta sales order data.
+
+#### Target Data Details:
+* Bronze Layer: Azure Databricks, Parquet format, Raw delta sales order data.
+
+#### Job Flow / Pipeline Stages:
+* Configure Attunity for CDC.
+* Schedule data ingestion for sources where CDC is not available.
+* Monitor data ingestion processes for errors or failures.
+
+#### Data Transformations / Business Logic:
+* Not applicable.
+
+#### Error Handling and Logging:
+* Use Attunity's built-in error handling and logging mechanisms.
+
+### TR-DPS-004
+* Related Functional Requirement(s): FR-DPS-004
+* Objective: Provide necessary access controls to various environments for development, testing, and execution of jobs.
+
+#### Target Cluster Configuration:
+* Not applicable.
+
+#### Source Data Details:
+* Not applicable.
+
+#### Target Data Details:
+* Not applicable.
+
+#### Job Flow / Pipeline Stages:
+* Grant access to users to connect to BD Landing Zone.
+* Provide access to develop, test, and execute jobs in Dev/QA environments.
+* Grant access to view visualizations in the Production Environment.
+
+#### Data Transformations / Business Logic:
+* Not applicable.
+
+#### Error Handling and Logging:
+* Use Azure Databricks' built-in access control and logging mechanisms.
+
+### TR-DPS-005
+* Related Functional Requirement(s): FR-DPS-005
+* Objective: Process data in Azure Databricks following the multi-layer folder structure.
+
+#### Target Cluster Configuration:
+* Not applicable.
+
+#### Source Data Details:
+* Not applicable.
+
+#### Target Data Details:
+* Bronze Layer: Azure Databricks, Parquet format, Raw data.
+* Silver Layer: Azure Databricks, Parquet format, Cleaned and augmented data.
+* Gold Layer: Azure Databricks, Parquet format, Filtered and aggregated data.
+
+#### Job Flow / Pipeline Stages:
+* Ingest raw data into Bronze Layer.
+* Clean and augment data in Silver Layer.
+* Filter and aggregate data for consumption in Gold Layer.
+
+#### Data Transformations / Business Logic:
+* Not applicable.
+
+#### Error Handling and Logging:
+* Use Azure Databricks' built-in error handling and logging mechanisms.

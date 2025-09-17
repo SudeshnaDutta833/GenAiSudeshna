@@ -1,100 +1,69 @@
+-- Validation query to check if the APM historical data was loaded correctly
 %sql
--- Validate Bronze Layer Tables Exist
-SELECT * 
-FROM information_schema.tables 
-WHERE table_schema = 'b_um_isc' 
-AND table_name IN ('apm_onetime_history_sales_orders', 'apm_onetime_history_sales_org_plant_xref');
+SELECT COUNT(*) as total_records,
+       COUNT(DISTINCT product) as distinct_products,
+       COUNT(DISTINCT loc) as distinct_locations,
+       SUM(CASE WHEN histstream = 'HIST' THEN 1 ELSE 0 END) as hist_records,
+       SUM(CASE WHEN histstream = 'RTNS' THEN 1 ELSE 0 END) as returns_records,
+       SUM(CASE WHEN histstream = 'FCST' THEN 1 ELSE 0 END) as forecast_records
+FROM bronze.apm_historical_data;
 
+-- Validation query to check if regional mapping data was loaded correctly
 %sql
--- Validate Silver Layer Table Exists
-SELECT * 
-FROM information_schema.tables 
-WHERE table_schema = 's_isc' 
-AND table_name = 'sales_orders_demand_fcst_apm_onetime_history';
+SELECT COUNT(*) as total_mappings,
+       COUNT(DISTINCT product) as distinct_products,
+       COUNT(DISTINCT loc) as distinct_locations,
+       COUNT(DISTINCT region) as distinct_regions,
+       COUNT(DISTINCT bd_sales_org) as distinct_sales_orgs,
+       COUNT(DISTINCT bd_plant) as distinct_plants
+FROM bronze.apm_regional_mapping;
 
+-- Validation query to check the enriched data in silver layer
 %sql
--- Validate External View Exists
-SELECT * 
-FROM information_schema.tables 
-WHERE table_schema = 'g_external' 
-AND table_name = 'v_sales_orders_demand_fcst_apm_onetime_history';
+SELECT COUNT(*) as total_records,
+       COUNT(DISTINCT product) as distinct_products,
+       COUNT(DISTINCT sales_organization) as distinct_sales_orgs,
+       COUNT(DISTINCT region) as distinct_regions,
+       COUNT(DISTINCT sales_office) as distinct_sales_offices,
+       COUNT(DISTINCT plant) as distinct_plants,
+       COUNT(DISTINCT planning_partner) as distinct_planning_partners,
+       SUM(CASE WHEN planning_partner = 'R' THEN 1 ELSE 0 END) as revenue_records,
+       SUM(CASE WHEN planning_partner = 'N' THEN 1 ELSE 0 END) as non_revenue_records,
+       SUM(CASE WHEN planning_partner = 'C' THEN 1 ELSE 0 END) as consignment_records
+FROM silver.apm_sales_history;
 
+-- Validation query to check the gold layer data
 %sql
--- Validate Bronze Layer APM Sales Orders Data
-SELECT 
-  COUNT(*) AS total_records,
-  COUNT(DISTINCT DMDUNIT) AS unique_products,
-  MIN(STARDATE) AS min_date,
-  MAX(STARDATE) AS max_date
-FROM b_um_isc.apm_onetime_history_sales_orders;
+SELECT region, 
+       sales_organization, 
+       COUNT(*) as record_count,
+       SUM(demand_quantity) as total_demand,
+       SUM(return_quantity) as total_returns
+FROM gold.apm_demand_history
+GROUP BY region, sales_organization
+ORDER BY region, sales_organization;
 
+-- Validation query for ECC delta load data (Version 2)
 %sql
--- Validate Bronze Layer Sales Org Plant Mapping Data
-SELECT 
-  COUNT(*) AS total_records,
-  COUNT(DISTINCT Product) AS unique_products,
-  COUNT(DISTINCT LOC) AS unique_locations,
-  COUNT(DISTINCT Region) AS unique_regions
-FROM b_um_isc.apm_onetime_history_sales_org_plant_xref;
+SELECT COUNT(*) as total_records,
+       COUNT(DISTINCT material) as distinct_products,
+       COUNT(DISTINCT sales_document) as distinct_sales_docs,
+       COUNT(DISTINCT ship_to_country) as distinct_countries,
+       COUNT(DISTINCT customer_classification) as distinct_cust_class,
+       SUM(CASE WHEN planning_partner = 'R' THEN 1 ELSE 0 END) as revenue_records,
+       SUM(CASE WHEN planning_partner = 'N' THEN 1 ELSE 0 END) as non_revenue_records,
+       SUM(CASE WHEN planning_partner = 'C' THEN 1 ELSE 0 END) as consignment_records
+FROM silver.apm_sales_delta;
 
+-- Validation query to check if sales office mapping is correctly applied
 %sql
--- Validate Silver Layer Data Transformation
-SELECT 
-  COUNT(*) AS total_records,
-  COUNT(DISTINCT DMDUNIT) AS unique_products,
-  COUNT(DISTINCT LOC) AS unique_locations,
-  COUNT(DISTINCT HISTSTREAM) AS unique_histstream_values,
-  MIN(STARDATE) AS min_date,
-  MAX(STARDATE) AS max_date
-FROM s_isc.sales_orders_demand_fcst_apm_onetime_history;
-
-%sql
--- Check for Null Values in Critical Fields in Silver Layer
-SELECT
-  SUM(CASE WHEN DMDUNIT IS NULL THEN 1 ELSE 0 END) AS null_dmdunit,
-  SUM(CASE WHEN DMDGROUP IS NULL THEN 1 ELSE 0 END) AS null_dmdgroup,
-  SUM(CASE WHEN LOC IS NULL THEN 1 ELSE 0 END) AS null_loc,
-  SUM(CASE WHEN STARDATE IS NULL THEN 1 ELSE 0 END) AS null_stardate,
-  SUM(CASE WHEN QTY IS NULL THEN 1 ELSE 0 END) AS null_qty,
-  SUM(CASE WHEN HISTSTREAM IS NULL THEN 1 ELSE 0 END) AS null_histstream
-FROM s_isc.sales_orders_demand_fcst_apm_onetime_history;
-
-%sql
--- Validate Data Distribution by Region
-SELECT 
-  x.Region,
-  COUNT(*) AS record_count
-FROM s_isc.sales_orders_demand_fcst_apm_onetime_history s
-JOIN b_um_isc.apm_onetime_history_sales_org_plant_xref x
-  ON s.DMDUNIT = x.Product AND s.LOC = x.LOC
-GROUP BY x.Region
-ORDER BY record_count DESC;
-
-%sql
--- Validate Data Distribution by HISTSTREAM (FCST, HIST, RTNS)
-SELECT 
-  HISTSTREAM,
-  COUNT(*) AS record_count,
-  SUM(QTY) AS total_quantity
-FROM s_isc.sales_orders_demand_fcst_apm_onetime_history
-GROUP BY HISTSTREAM
-ORDER BY record_count DESC;
-
-%sql
--- Validate Data Distribution by DMDGROUP (SALES, SAMPLES, CONSIGNMENTS)
-SELECT 
-  DMDGROUP,
-  COUNT(*) AS record_count,
-  SUM(QTY) AS total_quantity
-FROM s_isc.sales_orders_demand_fcst_apm_onetime_history
-GROUP BY DMDGROUP
-ORDER BY record_count DESC;
-
-%sql
--- Validate Date Range Coverage (Should be 5 years of data)
-SELECT 
-  YEAR(STARDATE) AS year,
-  COUNT(*) AS record_count
-FROM s_isc.sales_orders_demand_fcst_apm_onetime_history
-GROUP BY YEAR(STARDATE)
-ORDER BY year;
+SELECT rm.customer_classification, 
+       rm.country,
+       rm.sales_office,
+       COUNT(sd.sales_document) as order_count
+FROM silver.apm_sales_delta sd
+JOIN silver.regional_mapping rm 
+  ON sd.ship_to_country = rm.country
+ AND sd.customer_classification = rm.customer_classification
+GROUP BY rm.customer_classification, rm.country, rm.sales_office
+ORDER BY order_count DESC;
