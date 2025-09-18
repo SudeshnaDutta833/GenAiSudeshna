@@ -1,42 +1,58 @@
 Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
 * **Technical Requirement ID**: TR-SCM-001
-
 * **In scope and out of scope part(s)**: 
-  * In scope: Ingestion of JDA-APM demand history data into Azure Databricks, Transformation and processing of demand history data, Export of processed data to a CSV file (FR-SCM-001, FR-SCM-002)
-  * Out of scope: Creation/execution of test scripts
+  * In scope: FR-SCM-001, FR-SCM-002 (Ingestion of APM historical sales order data and regional mapping data into Azure Databricks, transformation and processing of ingested data to generate demand history data, and export of processed data to a CSV file)
+  * Out of scope: Creation and execution of test scripts
 
-* **Objective**: Implement a PySpark job to ingest, transform, and export JDA-APM demand history data to a CSV file.
+* **Objective**: Implement a PySpark job to ingest, transform, and export SCM Demand History data using Azure Databricks.
 
 * **Target Cluster Configuration**:
   * Cluster Name: SCM Demand History Cluster
-  * Databricks Runtime Version: 10.4.x-scala2.12
+  * Databricks Runtime Version: Latest LTS version
   * Node Type: Standard_DS3_v2
-  * Driver Node: 1 x Standard_DS3_v2
-  * Worker Nodes: 2-5 x Standard_DS3_v2 (autoscaling)
+  * Driver Node: Standard_DS3_v2
+  * Worker Nodes: 2-5 nodes (autoscaling)
   * Autoscaling: Enabled
-  * Auto Termination: Enabled (after 30 minutes of inactivity)
+  * Auto Termination: Enabled (30 minutes)
   * Libraries Installed: PySpark, Pandas, NumPy
 
 * **Source Data Details**:
-  * JDA-APM Demand History File: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order, CSV, Demand history data
-  * JDA-APM Regional, Sales Org & Plant Mapping File: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref, CSV, Regional, sales org, and plant mapping data
+  * Dataset Name: Historical Sales Order Data
+    * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order
+    * Format: CSV
+    * Description: Historical sales order data from JDA-APM
+  * Dataset Name: Regional Mapping Data
+    * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref
+    * Format: CSV
+    * Description: Regional mapping data from JDA-APM
 
 * **Target Data Details**:
-  * SCM Demand History Data: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_APM_onetime_SCM_demand_history.csv, CSV, Processed demand history data
+  * Output Name: SCM Demand History Data
+    * Location: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_APM_onetime_SCM_demand_history.csv
+    * Format: CSV
+    * Description: Processed demand history data for SCM
 
 * **Job Flow / Pipeline Stages**:
-  * Ingestion of JDA-APM demand history data into Bronze layer
-  * Ingestion of JDA-APM regional, sales org, and plant mapping data into Bronze layer
-  * Transformation of data into Silver layer
-  * Creation of Gold layer view
-  * Export of Gold layer view data to a CSV file
+  * Ingest historical sales order data and regional mapping data into Bronze tables
+  * Transform ingested data by joining historical sales order data with regional mapping data
+  * Apply mapping rules to generate required fields
+  * Load transformed data into Silver tables
+  * Create Gold view from Silver table
+  * Export Gold view data to CSV file
 
 * **Data Transformations / Business Logic**:
-  * Step 1: Join Bronze layer tables based on product and LOC columns
-  * Step 2: Apply transformations as per the mapping provided in the input file
-  * Step 3: Create a Gold layer view on top of the Silver layer table
+  * Step: Ingest data into Bronze tables
+    * Description: Load historical sales order data and regional mapping data into Bronze tables
+    * Transformation Logic: PySpark job to read CSV files and load data into Bronze tables
+  * Step: Transform ingested data
+    * Description: Join historical sales order data with regional mapping data and apply mapping rules
+    * Transformation Logic: PySpark job to join data and apply mapping rules
+  * Step: Load transformed data into Silver tables
+    * Description: Load transformed data into Silver tables
+    * Transformation Logic: PySpark job to load data into Silver tables
 
 * **Error Handling and Logging**:
-  * Error handling will be implemented using try-except blocks in PySpark
-  * Logging will be done using Databricks logging mechanisms, with log files stored in a designated location in ADLS
+  * Error handling: Implement try-except blocks to catch and log exceptions
+  * Logging: Use Databricks logging to log job execution and errors
+  * Log location: ADLS path (abfss://user-managed@{storage_account}.dfs.core.windows.net/logs/scm-demand-history)
