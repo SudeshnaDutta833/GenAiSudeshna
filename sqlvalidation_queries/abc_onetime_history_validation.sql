@@ -1,66 +1,61 @@
--- Validation query 1: Check if bronze tables have data
+-- Validation Queries for ABC Onetime History Processing
+
+-- 1. Validate Bronze Layer Data Ingestion
+%sql
+SELECT COUNT(*) AS total_records FROM b_um_xyz.ABC_onetime_history_sales_orders;
 
 %sql
-SELECT COUNT(*) AS record_count FROM b_um_xyz.ABC_onetime_history_sales_orders;
+SELECT COUNT(*) AS total_records FROM b_um_xyz.ABC_onetime_history_sales_org_plant_xref;
+
+-- 2. Validate Data Types in Bronze Layer
+%sql
+DESCRIBE TABLE b_um_xyz.ABC_onetime_history_sales_orders;
 
 %sql
-SELECT COUNT(*) AS record_count FROM b_um_xyz.ABC_onetime_history_sales_org_plant_xref;
+DESCRIBE TABLE b_um_xyz.ABC_onetime_history_sales_org_plant_xref;
 
--- Validation query 2: Verify data filtering for HIST and RTNS only
-
+-- 3. Check for HIST and RTNS Records Only (No FCST)
 %sql
-SELECT 
-  HISTSTREAM,
-  COUNT(*) AS record_count
+SELECT HISTSTREAM, COUNT(*) AS record_count
 FROM b_um_xyz.ABC_onetime_history_sales_orders
 GROUP BY HISTSTREAM
 ORDER BY HISTSTREAM;
 
--- Validation query 3: Check for proper planning partner mapping
+-- 4. Validate Silver Layer Transformation
+%sql
+SELECT COUNT(*) AS total_records FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history;
 
+-- 5. Check Planning Partner Mapping
 %sql
 SELECT 
   DMDGROUP,
   Planning_Partner,
   COUNT(*) AS record_count
-FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history
+FROM b_um_xyz.ABC_onetime_history_sales_orders hist
+JOIN s_xyz.sales_orders_demand_fcst_ABC_onetime_history silver
+  ON hist.DMDUNIT = silver.ABC_Model_Number
+  AND hist.STARTDATE = TO_DATE(CONCAT(SUBSTRING(CAST(silver.Cal_month AS STRING), 1, 4), '-', 
+                                      SUBSTRING(CAST(silver.Cal_month AS STRING), 5, 2), '-01'))
 GROUP BY DMDGROUP, Planning_Partner
 ORDER BY DMDGROUP;
 
--- Validation query 4: Verify join success rate between history and mapping tables
-
+-- 6. Validate Join Between History and Regional Mapping
 %sql
 SELECT 
-  CASE WHEN x.Product IS NULL THEN 'Unmapped' ELSE 'Mapped' END AS mapping_status,
-  COUNT(*) AS record_count
-FROM b_um_xyz.ABC_onetime_history_sales_orders h
-LEFT JOIN b_um_xyz.ABC_onetime_history_sales_org_plant_xref x
-  ON h.DMDUNIT = x.Product AND h.LOC = x.LOC
-WHERE h.HISTSTREAM IN ('HIST', 'RTNS')
-GROUP BY CASE WHEN x.Product IS NULL THEN 'Unmapped' ELSE 'Mapped' END;
+  COUNT(*) AS total_history_records,
+  SUM(CASE WHEN xref.Product IS NOT NULL AND xref.LOC IS NOT NULL THEN 1 ELSE 0 END) AS matched_records,
+  SUM(CASE WHEN xref.Product IS NULL OR xref.LOC IS NULL THEN 1 ELSE 0 END) AS unmatched_records
+FROM b_um_xyz.ABC_onetime_history_sales_orders hist
+LEFT JOIN b_um_xyz.ABC_onetime_history_sales_org_plant_xref xref
+  ON hist.DMDUNIT = xref.Product AND hist.LOC = xref.LOC;
 
--- Validation query 5: Check for correct demand and return quantity calculations
-
+-- 7. Validate Gold View Data
 %sql
-SELECT 
-  SUM(Demand_Quantity_MTS) AS total_demand_qty,
-  SUM(Returns_Qty_MTS) AS total_returns_qty
-FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history;
+SELECT COUNT(*) AS total_records FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history;
 
--- Validation query 6: Verify gold view has expected data
-
+-- 8. Check for NULL Values in Required Fields
 %sql
-SELECT COUNT(*) AS record_count FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history;
-
--- Validation query 7: Sample data from gold view
-
-%sql
-SELECT * FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history LIMIT 10;
-
--- Validation query 8: Check for any null values in required fields
-
-%sql
-SELECT 
+SELECT
   SUM(CASE WHEN Product IS NULL THEN 1 ELSE 0 END) AS null_product,
   SUM(CASE WHEN Country IS NULL THEN 1 ELSE 0 END) AS null_country,
   SUM(CASE WHEN Sales_Org IS NULL THEN 1 ELSE 0 END) AS null_sales_org,
@@ -69,25 +64,22 @@ SELECT
   SUM(CASE WHEN Planning_Partner IS NULL THEN 1 ELSE 0 END) AS null_planning_partner
 FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history;
 
--- Validation query 9: Check data distribution by planning partner
+-- 9. Validate Demand and Return Quantities
+%sql
+SELECT
+  SUM(Demand_Quantity_MTS) AS total_demand_qty,
+  SUM(Returns_Qty_MTS) AS total_returns_qty
+FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history;
+
+-- 10. Sample Data from Each Layer for Manual Verification
+%sql
+SELECT * FROM b_um_xyz.ABC_onetime_history_sales_orders LIMIT 10;
 
 %sql
-SELECT 
-  Planning_Partner,
-  COUNT(*) AS record_count,
-  SUM(Demand_Quantity_MTS) AS total_demand,
-  SUM(Returns_Qty_MTS) AS total_returns
-FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history
-GROUP BY Planning_Partner
-ORDER BY Planning_Partner;
-
--- Validation query 10: Check data distribution by country
+SELECT * FROM b_um_xyz.ABC_onetime_history_sales_org_plant_xref LIMIT 10;
 
 %sql
-SELECT 
-  Country,
-  COUNT(*) AS record_count
-FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history
-GROUP BY Country
-ORDER BY record_count DESC
-LIMIT 20;
+SELECT * FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history LIMIT 10;
+
+%sql
+SELECT * FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history LIMIT 10;
