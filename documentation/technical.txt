@@ -1,60 +1,45 @@
 Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-* **1. Technical Requirement ID**: TR-SCM-001
+* **1. Technical Requirement ID**: TR-DPS-001
 
 * **2. In scope and out of scope part(s)**: 
-  * In scope: Ingestion of historical sales order data from JDA-APM into Azure Databricks, data transformation, and export of the transformed data to a CSV file (FR-SCM-001, FR-SCM-002, FR-SCM-003)
-  * Out of scope: Creation/execution of any test script
+  * In scope: FR-DPS-001, FR-DPS-002, FR-DPS-003
+  * Out of scope: Creation/execution of test scripts
 
-* **3. Objective**: Implement a PySpark job to ingest historical sales order data from JDA-APM into Azure Databricks, transform the data, and export it to a CSV file.
+* **3. Objective**: Implement a PySpark job to ingest, transform, and export ABC historical sales order data for demand forecasting.
 
 * **4. Target Cluster Configuration**:
-  * Cluster Name: Supply Chain Management Cluster
-  * Databricks Runtime Version: 9.1 LTS (or latest compatible version)
+  * Cluster Name: Demand Planning Cluster
+  * Databricks Runtime Version: 7.3 LTS (or latest compatible version)
   * Node Type: Standard_DS3_v2
-  * Driver Node: 1 x Standard_DS3_v2
-  * Worker Nodes: 2-5 x Standard_DS3_v2 (autoscaling)
+  * Driver Node: Standard_DS3_v2
+  * Worker Nodes: 2-5 nodes (autoscaling enabled)
   * Autoscaling: Enabled
-  * Auto Termination: Enabled (after 30 minutes of inactivity)
-  * Libraries Installed: PySpark, pandas, numpy
+  * Auto Termination: Enabled (30 minutes idle time)
+  * Libraries Installed: PySpark, Pandas, NumPy
 
 * **5. Source Data Details**:
-  * Dataset Name: Historical Sales Order Data
-  * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order
-  * Format: CSV
-  * Description: Historical sales order data from JDA-APM
-  * Dataset Name: Regional, Sales Orgs & Plant Mapping Data
-  * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref
-  * Format: CSV
-  * Description: Regional, sales orgs & plant mapping data from JDA-APM
+  * Historical Sales Order Data: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order, Flat File, Contains historical sales order data
+  * Regional Mapping Data: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref, Flat File, Contains regional mapping data
 
 * **6. Target Data Details**:
-  * Output Name: Transformed Sales Order Data
-  * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/outbound/isc/apm_onetime_history/transformed_sales_order_data.csv
-  * Format: CSV
-  * Description: Transformed sales order data
+  * Transformed Data: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_ABC_onetime_SCM_demand_history.csv, CSV, Contains transformed data for demand forecasting
 
 * **7. Job Flow / Pipeline Stages**:
-  * Ingest historical sales order data from JDA-APM into Azure Databricks
-  * Ingest regional, sales orgs & plant mapping data from JDA-APM into Azure Databricks
-  * Create bronze tables for historical sales order data and regional, sales orgs & plant mapping data
-  * Create silver table by joining bronze tables based on product and LOC columns
-  * Apply data transformation rules
-  * Create gold view from silver table
-  * Export gold view to CSV file
+  * Ingest historical sales order data and regional mapping data into Bronze layer
+  * Transform ingested data into Silver layer
+  * Create Gold view for demand forecasting
+  * Export transformed data to CSV file
 
 * **8. Data Transformations / Business Logic**:
-  * Step: Create bronze tables
-  * Description: Create bronze tables for historical sales order data and regional, sales orgs & plant mapping data
-  * Transformation Logic: Read CSV files into DataFrames and create bronze tables
-  * Step: Create silver table
-  * Description: Create silver table by joining bronze tables based on product and LOC columns
-  * Transformation Logic: Join bronze tables using PySpark
-  * Step: Apply data transformation rules
-  * Description: Apply data transformation rules as specified in the input file
-  * Transformation Logic: Use PySpark to apply transformation rules
+  * Step 1: Ingest data into Bronze layer
+    * Transformation Logic: Read flat files into Bronze tables (`b_um_xyz.ABC_onetime_history_sales_orders` and `b_um_xyz.ABC_onetime_history_sales_org_plant_xref`)
+  * Step 2: Transform data in Silver layer
+    * Transformation Logic: Join historical sales order data with regional mapping data on product and LOC, apply mapping rules to populate key fields
+  * Step 3: Create Gold view
+    * Transformation Logic: Create Gold view (`g_external.v_sales_orders_demand_fcst_ABC_onetime_history`) on top of Silver table
 
 * **9. Error Handling and Logging**:
-  * Log errors and exceptions to a logging table in Azure Databricks
-  * Use try-except blocks to catch and handle exceptions
-  * Log job execution metrics and statistics to a monitoring dashboard
+  * Log errors and exceptions to a logging table or file
+  * Implement retry mechanism for failed tasks
+  * Notify stakeholders in case of job failure or errors
