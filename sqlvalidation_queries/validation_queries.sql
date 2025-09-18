@@ -1,69 +1,48 @@
--- Validation query to check if the APM historical data was loaded correctly
+-- Validation query for bronze layer tables
 %sql
-SELECT COUNT(*) as total_records,
-       COUNT(DISTINCT product) as distinct_products,
-       COUNT(DISTINCT loc) as distinct_locations,
-       SUM(CASE WHEN histstream = 'HIST' THEN 1 ELSE 0 END) as hist_records,
-       SUM(CASE WHEN histstream = 'RTNS' THEN 1 ELSE 0 END) as returns_records,
-       SUM(CASE WHEN histstream = 'FCST' THEN 1 ELSE 0 END) as forecast_records
-FROM bronze.apm_historical_data;
+SELECT COUNT(*) AS record_count, 
+       COUNT(DISTINCT DMDUNIT) AS unique_products 
+FROM b_um_isc.apm_onetime_history_sales_orders;
 
--- Validation query to check if regional mapping data was loaded correctly
+-- Validation query for regional mapping table
 %sql
-SELECT COUNT(*) as total_mappings,
-       COUNT(DISTINCT product) as distinct_products,
-       COUNT(DISTINCT loc) as distinct_locations,
-       COUNT(DISTINCT region) as distinct_regions,
-       COUNT(DISTINCT bd_sales_org) as distinct_sales_orgs,
-       COUNT(DISTINCT bd_plant) as distinct_plants
-FROM bronze.apm_regional_mapping;
+SELECT COUNT(*) AS record_count, 
+       COUNT(DISTINCT Product) AS unique_products,
+       COUNT(DISTINCT LOC) AS unique_locations
+FROM b_um_isc.apm_onetime_history_sales_org_plant_xref;
 
--- Validation query to check the enriched data in silver layer
+-- Validate the silver layer data after transformation
 %sql
-SELECT COUNT(*) as total_records,
-       COUNT(DISTINCT product) as distinct_products,
-       COUNT(DISTINCT sales_organization) as distinct_sales_orgs,
-       COUNT(DISTINCT region) as distinct_regions,
-       COUNT(DISTINCT sales_office) as distinct_sales_offices,
-       COUNT(DISTINCT plant) as distinct_plants,
-       COUNT(DISTINCT planning_partner) as distinct_planning_partners,
-       SUM(CASE WHEN planning_partner = 'R' THEN 1 ELSE 0 END) as revenue_records,
-       SUM(CASE WHEN planning_partner = 'N' THEN 1 ELSE 0 END) as non_revenue_records,
-       SUM(CASE WHEN planning_partner = 'C' THEN 1 ELSE 0 END) as consignment_records
-FROM silver.apm_sales_history;
+SELECT COUNT(*) AS record_count,
+       COUNT(DISTINCT `APM Model Number`) AS unique_products,
+       COUNT(DISTINCT Country) AS unique_countries,
+       COUNT(DISTINCT `Sales Organization`) AS unique_sales_orgs,
+       COUNT(DISTINCT PLANT) AS unique_plants
+FROM s_isc.sales_orders_demand_fcst_apm_onetime_history;
 
--- Validation query to check the gold layer data
+-- Validate that only HIST and RTNS data is loaded (no FCST)
 %sql
-SELECT region, 
-       sales_organization, 
-       COUNT(*) as record_count,
-       SUM(demand_quantity) as total_demand,
-       SUM(return_quantity) as total_returns
-FROM gold.apm_demand_history
-GROUP BY region, sales_organization
-ORDER BY region, sales_organization;
+SELECT HISTSTREAM, COUNT(*) AS record_count
+FROM b_um_isc.apm_onetime_history_sales_orders
+GROUP BY HISTSTREAM;
 
--- Validation query for ECC delta load data (Version 2)
+-- Validate planning partner mapping logic
 %sql
-SELECT COUNT(*) as total_records,
-       COUNT(DISTINCT material) as distinct_products,
-       COUNT(DISTINCT sales_document) as distinct_sales_docs,
-       COUNT(DISTINCT ship_to_country) as distinct_countries,
-       COUNT(DISTINCT customer_classification) as distinct_cust_class,
-       SUM(CASE WHEN planning_partner = 'R' THEN 1 ELSE 0 END) as revenue_records,
-       SUM(CASE WHEN planning_partner = 'N' THEN 1 ELSE 0 END) as non_revenue_records,
-       SUM(CASE WHEN planning_partner = 'C' THEN 1 ELSE 0 END) as consignment_records
-FROM silver.apm_sales_delta;
+SELECT DMDGROUP, 
+       Planning_Partner,
+       COUNT(*) AS record_count
+FROM s_isc.sales_orders_demand_fcst_apm_onetime_history s
+JOIN b_um_isc.apm_onetime_history_sales_orders b
+  ON s.`APM Model Number` = b.DMDUNIT
+GROUP BY DMDGROUP, Planning_Partner
+ORDER BY DMDGROUP;
 
--- Validation query to check if sales office mapping is correctly applied
+-- Validate gold view data
 %sql
-SELECT rm.customer_classification, 
-       rm.country,
-       rm.sales_office,
-       COUNT(sd.sales_document) as order_count
-FROM silver.apm_sales_delta sd
-JOIN silver.regional_mapping rm 
-  ON sd.ship_to_country = rm.country
- AND sd.customer_classification = rm.customer_classification
-GROUP BY rm.customer_classification, rm.country, rm.sales_office
-ORDER BY order_count DESC;
+SELECT COUNT(*) AS record_count,
+       COUNT(DISTINCT `APO Product`) AS unique_products,
+       COUNT(DISTINCT Country) AS unique_countries,
+       COUNT(DISTINCT `Sales Org`) AS unique_sales_orgs,
+       COUNT(DISTINCT ZPLANT) AS unique_plants,
+       COUNT(DISTINCT `Planning Partner`) AS unique_planning_partners
+FROM g_external.v_sales_orders_demand_fcst_apm_onetime_history;

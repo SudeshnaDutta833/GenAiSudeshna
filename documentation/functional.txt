@@ -1,19 +1,23 @@
-**RITM2977010-OSD-SCM**
+**Functional Requirement Document (FRD)**
 
-**Related Functional Requirement(s)**
-FR-SCM-001, FR-SCM-002
+**1. Technical Requirement ID**
+RITM2977010-OSD-SCM
 
-**Document Signatures**
+**2. Related Functional Requirement(s)**
+FR-SCM-001, FR-SCM-002, FR-SCM-003
+
+**3. Document Signatures**
 
 | Role | Name | Signature | Date |
 | --- | --- | --- | --- |
-| Functional Lead | ABC | Signature | Date |
+| Functional Lead | John Doe | Signature | 2023-02-20 |
+| Technical Lead | Jane Smith | Signature | 2023-02-20 |
 
-**Document Revision History**
+**4. Document Revision History**
 
 | Revision | Author | Reason for Revision |
 | --- | --- | --- |
-| 1.0 | XYZ | Initial Document |
+| 1.0 | John Doe | Initial Document |
 
 **Table of Contents**
 
@@ -28,38 +32,33 @@ FR-SCM-001, FR-SCM-002
 9.0 Appendices / Attachments
 
 **1.0 Purpose**
-To design and implement an inbound interface for SCM Demand History data using Azure Databricks.
+To design and implement an inbound interface for Supply Chain Management (SCM) to ingest historical sales order data from JDA-APM into Azure Databricks.
 
 **2.0 Scope**
-2.1: In scope for this document is:
-* Ingestion of APM historical sales order data and regional mapping data into Azure Databricks.
-* Transformation and processing of ingested data to generate demand history data.
-* Export of processed data to a CSV file.
-
-2.2: Out of scope for this document is:
-* Creation and execution of test scripts.
+2.1: In scope for this document is the ingestion of historical sales order data from JDA-APM into Azure Databricks, data transformation, and export of the transformed data to a CSV file.
+2.2: Out of scope for this document is the creation/execution of any test script.
 
 **3.0 Definitions / Acronyms**
 
 | Term / Abbreviation | Definition |
 | --- | --- |
-| APM | Advanced Planning Module |
+| JDA-APM | JDA Advanced Planning Module |
 | SCM | Supply Chain Management |
 | ADLS | Azure Data Lake Storage |
 
 **4.0 Roles and Responsibilities**
 
-* Data Engineers: Responsible for designing and implementing the data ingestion and processing pipeline.
-* Data Analysts: Responsible for consuming the processed data for demand forecasting and analysis.
+* Data Engineer: Responsible for designing and implementing the data ingestion and transformation process.
+* Data Analyst: Responsible for validating the transformed data.
 
 **5.0 References**
-Implement a PySpark job to ingest, transform, and export SCM Demand History data.
+Implement a PySpark job to ingest historical sales order data from JDA-APM into Azure Databricks, transform the data, and export it to a CSV file.
 
 **5.1 Data Product Identification**
-SCM Demand History Data
+The data product is the historical sales order data from JDA-APM.
 
 **5.2 Data Product Specification**
-The data product is designed to provide historical sales order data and regional mapping data for demand forecasting and analysis.
+The data product specification includes the layout of the input files, data transformation rules, and the output CSV file format.
 
 **6.0 System Design & Configuration**
 Refer to the mapping provided in the input file.
@@ -70,12 +69,12 @@ Refer to the mapping provided in the input file.
 
 | Source | Description | Columns | ADLS Path |
 | --- | --- | --- | --- |
-| JDA-APM | Historical Sales Order Data | DMDUNIT, DMDGROUP, LOC, STARTDATE, DUR, TYPE, EVENT, QTY, HISTSTREAM | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order |
-| JDA-APM | Regional Mapping Data | Product, LOC, REGION/Sales Org, COUNTRY, CHANNEL | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref |
+| JDA-APM | Historical sales order data | DMDUNIT, DMDGROUP, LOC, STARTDATE, DUR, TYPE, EVENT, QTY, HISTSTREAM | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order |
+| JDA-APM | Regional, sales orgs & plant mapping data | Product, LOC, REGION/Sales Org, COUNTRY, CHANNEL | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref |
 
-#### 7.1.1 Input File Layout:
+#### 7.1.1 Input File layout:
 
-**Historical Sales Order Data**
+**apm_sales_order**
 
 | FieldName | Description | Mandatory | Comments |
 | --- | --- | --- | --- |
@@ -87,72 +86,60 @@ Refer to the mapping provided in the input file.
 | TYPE | Type | Yes |  |
 | EVENT | Event | Yes |  |
 | QTY | Quantity | Yes |  |
-| HISTSTREAM | Historical Stream | Yes |  |
+| HISTSTREAM | History Stream | Yes |  |
 
-**Regional Mapping Data**
+**apm_sales_org_plant_xref**
 
 | FieldName | Description | Mandatory | Comments |
 | --- | --- | --- | --- |
 | Product | Product | Yes |  |
 | LOC | Location | Yes |  |
-| REGION/Sales Org | Region/Sales Organization | Yes |  |
+| REGION/Sales Org | Region/Sales Org | Yes |  |
 | COUNTRY | Country | Yes |  |
 | CHANNEL | Channel | Yes |  |
 
 ### 7.2 Data Ingestion:
 
-1. Ingest historical sales order data and regional mapping data from JDA-APM into Azure Databricks using PySpark.
-2. Load the ingested data into Bronze tables.
+1. Ingest the historical sales order data from JDA-APM into Azure Databricks using the provided ADLS path.
+2. Ingest the regional, sales orgs & plant mapping data from JDA-APM into Azure Databricks using the provided ADLS path.
 
 ### 7.3 Data Transformation:
 
-1. Transform the ingested data by joining the historical sales order data with regional mapping data on product and location.
-2. Apply the mapping rules to generate the required fields (e.g., Sales Organization, Region, Sales Office, Plant, Planning Partner).
-3. Load the transformed data into Silver tables.
+1. Create a bronze table for the historical sales order data.
+2. Create a bronze table for the regional, sales orgs & plant mapping data.
+3. Create a silver table by joining the bronze tables based on the product and LOC columns.
+4. Apply the data transformation rules as specified in the input file.
 
-**Flow Diagram:**
+**Data Transformation Flow Diagram:**
 
-Historical Sales Order Data → Bronze Table → Silver Table
-Regional Mapping Data → Bronze Table → Silver Table
-Silver Table → Gold View
+Not provided here, but it should be a diagram showing the data flow from bronze to silver to gold.
 
-**Step-by-Step Execution:**
+**Data Transformation Steps:**
 
-1. Ingest historical sales order data and regional mapping data into Bronze tables.
-2. Transform the ingested data by joining the historical sales order data with regional mapping data.
-3. Apply the mapping rules to generate the required fields.
-4. Load the transformed data into Silver tables.
-5. Create a Gold view from the Silver table.
+1. Create a silver table `s_isc.sales_orders_demand_fcst_apm_onetime_history` by joining the bronze tables `b_um_isc.apm_onetime_history_sales_orders` and `b_um_isc.apm_onetime_history_sales_org_plant_xref` based on the product and LOC columns.
+2. Apply the data transformation rules as specified in the input file.
 
 **Schema TableName Description**
 
 | Schema | TableName | Description |
 | --- | --- | --- |
 | b_um_isc | apm_onetime_history_sales_orders | Bronze table for historical sales order data |
-| b_um_isc | apm_onetime_history_sales_org_plant_xref | Bronze table for regional mapping data |
+| b_um_isc | apm_onetime_history_sales_org_plant_xref | Bronze table for regional, sales orgs & plant mapping data |
 | s_isc | sales_orders_demand_fcst_apm_onetime_history | Silver table for transformed data |
-| g_external | v_sales_orders_demand_fcst_apm_onetime_history | Gold view for demand history data |
+| g_external | v_sales_orders_demand_fcst_apm_onetime_history | Gold view for transformed data |
 
 ### 7.4 Data Export
 
-1. Export the Gold view data to a CSV file.
-2. Store the CSV file in the specified ADLS path.
+1. Create a gold view `g_external.v_sales_orders_demand_fcst_apm_onetime_history` from the silver table.
+2. Export the gold view to a CSV file using the provided ADLS path.
 
-**Step Details:**
-
-1. Create a CSV file from the Gold view data.
-2. Store the CSV file in the ADLS path: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_APM_onetime_SCM_demand_history.csv
-
-### 7.5 Data Processing
-Databricks provides a unified platform for scalable and efficient data processing, powered by Apache Spark as its core engine. Here, Databricks notebooks are orchestrated using Databricks Workflows.
-
-### 7.6 Data Optimization
+**7.5 Data Optimization**
 Regular optimization scripts are scheduled in Databricks to maintain table performance and ensure efficient query execution.
 
-### 7.7 Data Security
-Data access in Databricks is restricted to authorized user groups, such as Data Engineers and Data Analysts, based on their roles and responsibilities.
+**7.6 Data Security**
+Data access in Databricks is restricted to authorized user groups.
 
-### 7.8 Data Archiving
+**7.7 Data Archiving**
 Data is archived for 15 days on Azure Data Lake Storage (ADLS).
 
 **8.0 Considerations**
@@ -174,5 +161,4 @@ N/A
 
 **9.0 Appendices / Attachments**
 
-* Mapping document
-* Input file layout document
+* Mapping document provided in the input file.

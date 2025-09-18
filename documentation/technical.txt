@@ -1,58 +1,60 @@
 Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-* **Technical Requirement ID**: TR-SCM-001
-* **In scope and out of scope part(s)**: 
-  * In scope: FR-SCM-001, FR-SCM-002 (Ingestion of APM historical sales order data and regional mapping data into Azure Databricks, transformation and processing of ingested data to generate demand history data, and export of processed data to a CSV file)
-  * Out of scope: Creation and execution of test scripts
+* **1. Technical Requirement ID**: TR-SCM-001
 
-* **Objective**: Implement a PySpark job to ingest, transform, and export SCM Demand History data using Azure Databricks.
+* **2. In scope and out of scope part(s)**: 
+  * In scope: Ingestion of historical sales order data from JDA-APM into Azure Databricks, data transformation, and export of the transformed data to a CSV file (FR-SCM-001, FR-SCM-002, FR-SCM-003)
+  * Out of scope: Creation/execution of any test script
 
-* **Target Cluster Configuration**:
-  * Cluster Name: SCM Demand History Cluster
-  * Databricks Runtime Version: Latest LTS version
+* **3. Objective**: Implement a PySpark job to ingest historical sales order data from JDA-APM into Azure Databricks, transform the data, and export it to a CSV file.
+
+* **4. Target Cluster Configuration**:
+  * Cluster Name: Supply Chain Management Cluster
+  * Databricks Runtime Version: 9.1 LTS (or latest compatible version)
   * Node Type: Standard_DS3_v2
-  * Driver Node: Standard_DS3_v2
-  * Worker Nodes: 2-5 nodes (autoscaling)
+  * Driver Node: 1 x Standard_DS3_v2
+  * Worker Nodes: 2-5 x Standard_DS3_v2 (autoscaling)
   * Autoscaling: Enabled
-  * Auto Termination: Enabled (30 minutes)
-  * Libraries Installed: PySpark, Pandas, NumPy
+  * Auto Termination: Enabled (after 30 minutes of inactivity)
+  * Libraries Installed: PySpark, pandas, numpy
 
-* **Source Data Details**:
+* **5. Source Data Details**:
   * Dataset Name: Historical Sales Order Data
-    * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order
-    * Format: CSV
-    * Description: Historical sales order data from JDA-APM
-  * Dataset Name: Regional Mapping Data
-    * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref
-    * Format: CSV
-    * Description: Regional mapping data from JDA-APM
+  * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order
+  * Format: CSV
+  * Description: Historical sales order data from JDA-APM
+  * Dataset Name: Regional, Sales Orgs & Plant Mapping Data
+  * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref
+  * Format: CSV
+  * Description: Regional, sales orgs & plant mapping data from JDA-APM
 
-* **Target Data Details**:
-  * Output Name: SCM Demand History Data
-    * Location: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_APM_onetime_SCM_demand_history.csv
-    * Format: CSV
-    * Description: Processed demand history data for SCM
+* **6. Target Data Details**:
+  * Output Name: Transformed Sales Order Data
+  * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/outbound/isc/apm_onetime_history/transformed_sales_order_data.csv
+  * Format: CSV
+  * Description: Transformed sales order data
 
-* **Job Flow / Pipeline Stages**:
-  * Ingest historical sales order data and regional mapping data into Bronze tables
-  * Transform ingested data by joining historical sales order data with regional mapping data
-  * Apply mapping rules to generate required fields
-  * Load transformed data into Silver tables
-  * Create Gold view from Silver table
-  * Export Gold view data to CSV file
+* **7. Job Flow / Pipeline Stages**:
+  * Ingest historical sales order data from JDA-APM into Azure Databricks
+  * Ingest regional, sales orgs & plant mapping data from JDA-APM into Azure Databricks
+  * Create bronze tables for historical sales order data and regional, sales orgs & plant mapping data
+  * Create silver table by joining bronze tables based on product and LOC columns
+  * Apply data transformation rules
+  * Create gold view from silver table
+  * Export gold view to CSV file
 
-* **Data Transformations / Business Logic**:
-  * Step: Ingest data into Bronze tables
-    * Description: Load historical sales order data and regional mapping data into Bronze tables
-    * Transformation Logic: PySpark job to read CSV files and load data into Bronze tables
-  * Step: Transform ingested data
-    * Description: Join historical sales order data with regional mapping data and apply mapping rules
-    * Transformation Logic: PySpark job to join data and apply mapping rules
-  * Step: Load transformed data into Silver tables
-    * Description: Load transformed data into Silver tables
-    * Transformation Logic: PySpark job to load data into Silver tables
+* **8. Data Transformations / Business Logic**:
+  * Step: Create bronze tables
+  * Description: Create bronze tables for historical sales order data and regional, sales orgs & plant mapping data
+  * Transformation Logic: Read CSV files into DataFrames and create bronze tables
+  * Step: Create silver table
+  * Description: Create silver table by joining bronze tables based on product and LOC columns
+  * Transformation Logic: Join bronze tables using PySpark
+  * Step: Apply data transformation rules
+  * Description: Apply data transformation rules as specified in the input file
+  * Transformation Logic: Use PySpark to apply transformation rules
 
-* **Error Handling and Logging**:
-  * Error handling: Implement try-except blocks to catch and log exceptions
-  * Logging: Use Databricks logging to log job execution and errors
-  * Log location: ADLS path (abfss://user-managed@{storage_account}.dfs.core.windows.net/logs/scm-demand-history)
+* **9. Error Handling and Logging**:
+  * Log errors and exceptions to a logging table in Azure Databricks
+  * Use try-except blocks to catch and handle exceptions
+  * Log job execution metrics and statistics to a monitoring dashboard
