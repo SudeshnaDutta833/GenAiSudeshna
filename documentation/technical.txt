@@ -1,166 +1,42 @@
 Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-### TR-DPS-001
-* Related Functional Requirement(s): FR-DPS-001
-* Objective: Implement a PySpark job to ingest APM 5-Year Historical Sales Order Data into Azure Databricks.
+* **Technical Requirement ID**: TR-SCM-001
 
-#### Target Cluster Configuration:
-* Cluster Name: DPS-Historical-Data-Ingestion
-* Databricks Runtime Version: 7.3 LTS
-* Node Type: Standard_DS3_v2
-* Driver Node: Standard_DS3_v2
-* Worker Nodes: 2-5 (autoscaling)
-* Autoscaling: Enabled
-* Auto Termination: 30 minutes
-* Libraries Installed: spark-xml, delta-lake
+* **In scope and out of scope part(s)**: 
+  * In scope: Ingestion of JDA-APM demand history data into Azure Databricks, Transformation and processing of demand history data, Export of processed data to a CSV file (FR-SCM-001, FR-SCM-002)
+  * Out of scope: Creation/execution of test scripts
 
-#### Source Data Details:
-* APM 5-Year Demand History flat files: SFTP server location, CSV format, Historical sales order data for the last 5 years.
-* APM Regional mapping file: SFTP server location, CSV format, Mapping data for regional, sales orgs, and plant.
+* **Objective**: Implement a PySpark job to ingest, transform, and export JDA-APM demand history data to a CSV file.
 
-#### Target Data Details:
-* Bronze Layer: Azure Databricks, Parquet format, Raw historical sales order data.
-* Silver Layer: Azure Databricks, Parquet format, Transformed historical sales order data.
-* Gold Layer: Azure Databricks, Parquet format, Filtered and aggregated historical sales order data.
+* **Target Cluster Configuration**:
+  * Cluster Name: SCM Demand History Cluster
+  * Databricks Runtime Version: 10.4.x-scala2.12
+  * Node Type: Standard_DS3_v2
+  * Driver Node: 1 x Standard_DS3_v2
+  * Worker Nodes: 2-5 x Standard_DS3_v2 (autoscaling)
+  * Autoscaling: Enabled
+  * Auto Termination: Enabled (after 30 minutes of inactivity)
+  * Libraries Installed: PySpark, Pandas, NumPy
 
-#### Job Flow / Pipeline Stages:
-* Connect to SFTP server to access flat files.
-* Load flat files into Bronze Layer.
-* Create lookup table based on regional mapping file.
-* Join historical data with regional mapping table.
-* Apply transformations based on HISTSTREAM column.
-* Populate Sales Organization, Region, Sales Office, and Plant fields.
-* Store transformed data in Silver Layer.
-* Filter and aggregate data for consumption and store in Gold Layer.
+* **Source Data Details**:
+  * JDA-APM Demand History File: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order, CSV, Demand history data
+  * JDA-APM Regional, Sales Org & Plant Mapping File: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref, CSV, Regional, sales org, and plant mapping data
 
-#### Data Transformations / Business Logic:
-* Step 1: Load flat files into Bronze Layer.
-	+ Transformation Logic: Use PySpark to read CSV files and write to Parquet format.
-* Step 2: Create lookup table based on regional mapping file.
-	+ Transformation Logic: Use PySpark to read CSV file and create a lookup table.
-* Step 3: Join historical data with regional mapping table.
-	+ Transformation Logic: Use PySpark to join historical data with lookup table on product and LOC.
-* Step 4: Apply transformations based on HISTSTREAM column.
-	+ Transformation Logic: Use PySpark to determine Demand quantity and Return quantity based on HISTSTREAM column.
+* **Target Data Details**:
+  * SCM Demand History Data: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_APM_onetime_SCM_demand_history.csv, CSV, Processed demand history data
 
-#### Error Handling and Logging:
-* Use try-except blocks to catch and log exceptions.
-* Log errors to a designated log file.
-* Implement retry mechanism for failed tasks.
+* **Job Flow / Pipeline Stages**:
+  * Ingestion of JDA-APM demand history data into Bronze layer
+  * Ingestion of JDA-APM regional, sales org, and plant mapping data into Bronze layer
+  * Transformation of data into Silver layer
+  * Creation of Gold layer view
+  * Export of Gold layer view data to a CSV file
 
-### TR-DPS-002
-* Related Functional Requirement(s): FR-DPS-002
-* Objective: Implement a PySpark job to ingest APM Sales Order Delta Data from ECC System into Azure Databricks.
+* **Data Transformations / Business Logic**:
+  * Step 1: Join Bronze layer tables based on product and LOC columns
+  * Step 2: Apply transformations as per the mapping provided in the input file
+  * Step 3: Create a Gold layer view on top of the Silver layer table
 
-#### Target Cluster Configuration:
-* Cluster Name: DPS-Delta-Data-Ingestion
-* Databricks Runtime Version: 7.3 LTS
-* Node Type: Standard_DS3_v2
-* Driver Node: Standard_DS3_v2
-* Worker Nodes: 2-5 (autoscaling)
-* Autoscaling: Enabled
-* Auto Termination: 30 minutes
-* Libraries Installed: spark-xml, delta-lake
-
-#### Source Data Details:
-* ECC sales order delta data: ECC system, CSV format, Delta sales order data.
-* Regional mapping file: SFTP server location, CSV format, Mapping data for regional, sales orgs, and plant.
-
-#### Target Data Details:
-* Bronze Layer: Azure Databricks, Parquet format, Raw delta sales order data.
-* Silver Layer: Azure Databricks, Parquet format, Transformed delta sales order data.
-* Gold Layer: Azure Databricks, Parquet format, Filtered and aggregated delta sales order data.
-
-#### Job Flow / Pipeline Stages:
-* Ingest ECC sales order delta data into Bronze Layer.
-* Create or update lookup table based on regional mapping file.
-* Join delta data with regional mapping table.
-* Populate Planning partner based on Sales Doc Type.
-* Apply necessary transformations.
-* Store transformed data in Silver Layer.
-* Filter and aggregate data for consumption and store in Gold Layer.
-
-#### Data Transformations / Business Logic:
-* Step 1: Ingest ECC sales order delta data into Bronze Layer.
-	+ Transformation Logic: Use PySpark to read CSV files and write to Parquet format.
-* Step 2: Create or update lookup table based on regional mapping file.
-	+ Transformation Logic: Use PySpark to read CSV file and create or update a lookup table.
-
-#### Error Handling and Logging:
-* Use try-except blocks to catch and log exceptions.
-* Log errors to a designated log file.
-* Implement retry mechanism for failed tasks.
-
-### TR-DPS-003
-* Related Functional Requirement(s): FR-DPS-003
-* Objective: Configure Attunity for CDC to ingest ECC sales order delta data and schedule data ingestion.
-
-#### Target Cluster Configuration:
-* Not applicable.
-
-#### Source Data Details:
-* ECC sales order delta data: ECC system, CDC format, Delta sales order data.
-
-#### Target Data Details:
-* Bronze Layer: Azure Databricks, Parquet format, Raw delta sales order data.
-
-#### Job Flow / Pipeline Stages:
-* Configure Attunity for CDC.
-* Schedule data ingestion for sources where CDC is not available.
-* Monitor data ingestion processes for errors or failures.
-
-#### Data Transformations / Business Logic:
-* Not applicable.
-
-#### Error Handling and Logging:
-* Use Attunity's built-in error handling and logging mechanisms.
-
-### TR-DPS-004
-* Related Functional Requirement(s): FR-DPS-004
-* Objective: Provide necessary access controls to various environments for development, testing, and execution of jobs.
-
-#### Target Cluster Configuration:
-* Not applicable.
-
-#### Source Data Details:
-* Not applicable.
-
-#### Target Data Details:
-* Not applicable.
-
-#### Job Flow / Pipeline Stages:
-* Grant access to users to connect to BD Landing Zone.
-* Provide access to develop, test, and execute jobs in Dev/QA environments.
-* Grant access to view visualizations in the Production Environment.
-
-#### Data Transformations / Business Logic:
-* Not applicable.
-
-#### Error Handling and Logging:
-* Use Azure Databricks' built-in access control and logging mechanisms.
-
-### TR-DPS-005
-* Related Functional Requirement(s): FR-DPS-005
-* Objective: Process data in Azure Databricks following the multi-layer folder structure.
-
-#### Target Cluster Configuration:
-* Not applicable.
-
-#### Source Data Details:
-* Not applicable.
-
-#### Target Data Details:
-* Bronze Layer: Azure Databricks, Parquet format, Raw data.
-* Silver Layer: Azure Databricks, Parquet format, Cleaned and augmented data.
-* Gold Layer: Azure Databricks, Parquet format, Filtered and aggregated data.
-
-#### Job Flow / Pipeline Stages:
-* Ingest raw data into Bronze Layer.
-* Clean and augment data in Silver Layer.
-* Filter and aggregate data for consumption in Gold Layer.
-
-#### Data Transformations / Business Logic:
-* Not applicable.
-
-#### Error Handling and Logging:
-* Use Azure Databricks' built-in error handling and logging mechanisms.
+* **Error Handling and Logging**:
+  * Error handling will be implemented using try-except blocks in PySpark
+  * Logging will be done using Databricks logging mechanisms, with log files stored in a designated location in ADLS

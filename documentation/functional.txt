@@ -1,94 +1,150 @@
-Here is the detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD), specifically the "Coding Requirements" section:
+Here is the detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD):
 
-### FR-DPS-001
-#### Title
-Ingest APM 5-Year Historical Sales Order Data
+**Technical Requirement ID**
+RITM2977010-OSD-SCM
 
-#### Description
-The system must ingest 5 years of historical APM sales order data from flat files into Azure Databricks for global demand planning.
+**Related Functional Requirement(s)**
+FR-SCM-001, FR-SCM-002
 
-#### Preconditions
-- APM 5-Year Demand History flat files are available in the designated SFTP server location.
-- APM Regional, sales orgs, and plant mapping data files are available.
-- Necessary access rights to connect to BD Landing Zone.
+**Document Signatures**
+| Role | Name | Signature | Date |
+| --- | --- | --- | --- |
+| Functional Lead | [Name] | [Signature] | [Date] |
 
-#### Main Flow / Functional Steps
-1. Connect to the SFTP server to access APM 5-Year Demand History flat files and mapping files.
-2. Load the flat files into the Bronze Layer of Azure Databricks.
-3. Create a lookup table based on the regional mapping file.
-4. Join the historical data with the regional mapping table on product and LOC to enrich the dataset.
-5. Apply transformations based on the HISTSTREAM column to determine Demand quantity and Return quantity.
-6. Populate Sales Organization, Region, Sales Office, and Plant fields based on the regional mapping table.
-7. Determine Planning partner based on the DMDGROUP field.
-8. Store the transformed data in the Silver Layer.
-9. Filter and aggregate data for consumption and store it in the Gold Layer.
+**Document Revision History**
+| Revision | Author | Reason for Revision |
+| --- | --- | --- |
+| 1.0 | [Author] | Initial Document |
 
-### FR-DPS-002
-#### Title
-Ingest APM Sales Order Delta Data from ECC System
+**Table of Contents**
 
-#### Description
-The system must ingest APM sales order delta data from the ECC system into Azure Databricks for global demand planning.
+1.0 Purpose
+2.0 Scope
+3.0 Definitions / Acronyms
+4.0 Roles and Responsibilities
+5.0 References
+6.0 System Design & Configuration
+7.0 Data Product Design
+8.0 Considerations
+9.0 Appendices / Attachments
 
-#### Preconditions
-- ECC sales order delta data is available.
-- Regional mapping data file is available.
-- Necessary access rights to develop, test, and execute jobs in Azure Databricks.
+**1.0 Purpose**
+To design and develop an inbound interface for SCM demand history data from JDA-APM to Azure Databricks.
 
-#### Main Flow / Functional Steps
-1. Ingest ECC sales order delta data into the Bronze Layer of Azure Databricks.
-2. Create or update a lookup table based on the regional mapping file.
-3. Join the sales order delta data with the regional mapping table on ship to country and Customer classification to derive Sales Office.
-4. Populate Planning partner based on Sales Doc Type.
-5. Apply necessary transformations to align with global planning hierarchies.
-6. Store the transformed data in the Silver Layer.
-7. Filter and aggregate data for consumption and store it in the Gold Layer.
+**2.0 Scope**
+2.1: In scope for this document is:
+* Ingestion of JDA-APM demand history data into Azure Databricks
+* Transformation and processing of demand history data
+* Export of processed data to a CSV file
 
-### FR-DPS-003
-#### Title
-Data Ingestion and Scheduling
+2.2: Out of scope for this document is:
+* Creation/execution of test scripts
 
-#### Description
-The system must ingest data via Attunity for ECC sales order delta data and schedule data ingestion as per daily frequency where CDC is not an option.
+**3.0 Definitions / Acronyms**
+| Term / Abbreviation | Definition |
+| --- | --- |
+| JDA-APM | JDA Advanced Planning Module |
+| SCM | Supply Chain Management |
+| ADLS | Azure Data Lake Storage |
 
-#### Preconditions
-- Attunity is configured for CDC.
-- Data sources are identified and accessible.
+**4.0 Roles and Responsibilities**
+* Data Engineers: responsible for designing and developing the data pipeline
+* Data Analysts: responsible for validating and verifying the processed data
 
-#### Main Flow / Functional Steps
-1. Configure Attunity for CDC to ingest ECC sales order delta data.
-2. Schedule data ingestion for sources where CDC is not available.
-3. Monitor data ingestion processes for errors or failures.
+**5.0 References**
+Implement a PySpark job to ingest, transform, and export JDA-APM demand history data to a CSV file.
 
-### FR-DPS-004
-#### Title
-Security and Access Control
+**5.1 Data Product Identification**
+* Data Product: SCM Demand History Data
+* Data Source: JDA-APM
 
-#### Description
-The system must provide necessary access controls to various environments (Dev/QA/Production) for development, testing, and execution of jobs.
+**5.2 Data Product Specification**
+* Data Format: CSV
+* Data Frequency: One-time load
 
-#### Preconditions
-- User roles are defined.
-- Access rights are granted based on user roles.
+**6.0 System Design & Configuration**
+Refer to the mapping provided in the input file.
 
-#### Main Flow / Functional Steps
-1. Grant access to users to connect to BD Landing Zone.
-2. Provide access to develop, test, and execute jobs in Dev/QA environments.
-3. Grant access to view visualizations in the Production Environment.
+**7.0 Data Product Design**
 
-### FR-DPS-005
-#### Title
-Data Processing and Storage
+### 7.1 Data Sources
+| Source | Description | Columns | ADLS Path |
+| --- | --- | --- | --- |
+| JDA-APM Demand History File | Flat file containing demand history data | DMDUNIT, DMDGROUP, LOC, STARTDATE, DUR, TYPE, EVENT, QTY, HISTSTREAM | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order |
+| JDA-APM Regional, Sales Org & Plant Mapping File | Flat file containing regional, sales org, and plant mapping data | Product, LOC, REGION/Sales Org, COUNTRY, CHANNEL | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref |
 
-#### Description
-The system must process data in Azure Databricks following the multi-layer folder structure (Bronze, Silver, Gold).
+#### 7.1.1 Input File Layout:
+| FieldName | Description | Mandatory | Comments |
+| --- | --- | --- | --- |
+| DMDUNIT | APM Model material number | Yes |  |
+| DMDGROUP | Type of Sales (Samples/Consign/Sales) | Yes |  |
+| LOC | Country code | Yes |  |
+| STARTDATE | Transaction date | Yes |  |
+| DUR | Duration | Yes |  |
+| TYPE | Type | Yes |  |
+| EVENT | Event | Yes |  |
+| QTY | Quantity | Yes |  |
+| HISTSTREAM | History stream | Yes |  |
 
-#### Preconditions
-- Azure Databricks is set up with the required multi-layer folder structure.
+### 7.2 Data Ingestion:
+1. Ingest JDA-APM demand history data into Bronze layer (b_um_isc.apm_onetime_history_sales_orders table)
+2. Ingest JDA-APM regional, sales org, and plant mapping data into Bronze layer (b_um_isc.apm_onetime_history_sales_org_plant_xref table)
 
-#### Main Flow / Functional Steps
-1. Ingest raw data into the Bronze Layer.
-2. Clean and augment data in the Silver Layer.
-3. Filter and aggregate data for consumption in the Gold Layer.
+### 7.3 Data Transformation:
+1. Create a Silver layer table (s_isc.sales_orders_demand_fcst_apm_onetime_history) by joining the Bronze layer tables based on the product and LOC columns.
+2. Apply transformations as per the mapping provided in the input file.
 
-These functional requirements are derived directly from the "Coding Requirements" section of the provided BRD, focusing on the technical and functional aspects necessary for the development of the ETL pipeline for APM sales order data.
+Flow Diagram:
+```
+Bronze Layer -> Silver Layer -> Gold Layer
+```
+
+Execution Steps:
+1. Join the Bronze layer tables based on the product and LOC columns.
+2. Apply transformations as per the mapping provided in the input file.
+3. Create a Gold layer view (g_external.v_sales_orders_demand_fcst_apm_onetime_history) on top of the Silver layer table.
+
+Schema:
+| TableName | Description |
+| --- | --- |
+| b_um_isc.apm_onetime_history_sales_orders | Bronze layer table for demand history data |
+| b_um_isc.apm_onetime_history_sales_org_plant_xref | Bronze layer table for regional, sales org, and plant mapping data |
+| s_isc.sales_orders_demand_fcst_apm_onetime_history | Silver layer table for transformed data |
+| g_external.v_sales_orders_demand_fcst_apm_onetime_history | Gold layer view for final data |
+
+### 7.4 Data Export:
+1. Export the Gold layer view data to a CSV file.
+2. Store the CSV file in the specified ADLS path (abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_APM_onetime_SCM_demand_history.csv)
+
+### 7.5 Data Processing
+Databricks provides a unified platform for scalable and efficient data processing, powered by Apache Spark as its core engine. Here, Databricks notebooks are orchestrated using Databricks Workflows.
+
+### 7.6 Data Optimization
+Regular optimization scripts are scheduled in Databricks to maintain table performance and ensure efficient query execution.
+
+### 7.7 Data Security
+Data access in Databricks is restricted to authorized user groups, such as Data Engineers and Data Analysts, based on their roles and responsibilities.
+
+### 7.8 Data Archiving
+Data is archived for 15 days on Azure Data Lake Storage (ADLS).
+
+**8.0 Considerations**
+
+### 8.1 Assumptions
+N/A
+
+### 8.2 Exclusions
+Creation/execution of test scripts.
+
+### 8.3 Constraints
+N/A
+
+### 8.4 Dependencies
+N/A
+
+### 8.5 Decisions
+N/A
+
+**9.0 Appendices / Attachments**
+
+* Mapping document provided in the input file.
