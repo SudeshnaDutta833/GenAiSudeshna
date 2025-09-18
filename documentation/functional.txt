@@ -10,8 +10,8 @@ FR-DPS-001, FR-DPS-002, FR-DPS-003
 
 | Role | Name | Signature | Date |
 | --- | --- | --- | --- |
-| Functional Lead | ABC | Signature | Date |
-| Technical Lead | DEF | Signature | Date |
+| Functional Lead | ABC |  |  |
+| Technical Lead | DEF |  |  |
 
 **4. Document Revision History**
 
@@ -32,16 +32,15 @@ FR-DPS-001, FR-DPS-002, FR-DPS-003
 9.0 Appendices / Attachments
 
 **1.0 Purpose**
-To design and implement a data processing pipeline to ingest, transform, and export ABC historical sales order data for demand forecasting.
+To design and implement a data processing pipeline to ingest, transform, and export ABC historical sales order data for demand planning purposes.
 
 **2.0 Scope**
 2.1: In scope for this document is:
-* Ingestion of ABC historical sales order data and regional mapping data from flat files.
-* Transformation of ingested data into a suitable format for demand forecasting.
-* Export of transformed data to a CSV file.
-
+* Ingestion of ABC historical sales order data and regional mapping data from flat files
+* Transformation of ingested data into a consumable format
+* Export of transformed data to a CSV file for downstream consumption
 2.2: Out of scope for this document is:
-* Creation/execution of test scripts.
+* Creation/execution of any test script
 
 **3.0 Definitions / Acronyms**
 
@@ -52,8 +51,9 @@ To design and implement a data processing pipeline to ingest, transform, and exp
 | JDA | JDA-ABC system |
 
 **4.0 Roles and Responsibilities**
-* Data Engineers: Responsible for designing and implementing the data processing pipeline.
-* Data Analysts: Responsible for validating the output data.
+
+* Data Engineers: responsible for designing and implementing the data processing pipeline
+* Data Analysts: responsible for consuming the exported data for demand planning purposes
 
 **5.0 References**
 Implement a PySpark job to ingest, transform, and export ABC historical sales order data.
@@ -62,7 +62,7 @@ Implement a PySpark job to ingest, transform, and export ABC historical sales or
 ABC Historical Sales Order Data
 
 **5.2 Data Product Specification**
-The data product is designed to provide accurate and consistent historical sales order data for demand forecasting.
+The data product is designed to provide accurate and consistent historical sales order data for demand planning purposes.
 
 **6.0 System Design & Configuration**
 Refer to the mapping provided in the input file.
@@ -84,7 +84,7 @@ Refer to the mapping provided in the input file.
 | --- | --- | --- | --- |
 | DMDUNIT | ABC Model material number | Yes |  |
 | DMDGROUP | Type of Sales (Samples/Consign/Sales) | Yes |  |
-| LOC | Country Code | Yes |  |
+| LOC | Location | Yes |  |
 | STARTDATE | Start Date | Yes |  |
 | DUR | Duration | Yes |  |
 | TYPE | Type | Yes |  |
@@ -96,59 +96,85 @@ Refer to the mapping provided in the input file.
 
 | FieldName | Description | Mandatory | Comments |
 | --- | --- | --- | --- |
-| Product | Product Code | Yes |  |
-| LOC | Location Code | Yes |  |
-| REGION/Sales Org | Region/Sales Org | Yes |  |
-| COUNTRY | Country Code | Yes |  |
+| Product | Product | Yes |  |
+| LOC | Location | Yes |  |
+| REGION/Sales Org | Region/Sales Organization | Yes |  |
+| COUNTRY | Country | Yes |  |
 | CHANNEL | Channel | Yes |  |
 
 ### 7.2 Data Ingestion:
 
-1. Ingest historical sales order data and regional mapping data from flat files into Bronze layer.
-2. Store ingested data in Bronze tables: `b_um_xyz.ABC_onetime_history_sales_orders` and `b_um_xyz.ABC_onetime_history_sales_org_plant_xref`.
+1. Ingest historical sales order data from flat file into Bronze layer (b_um_xyz.ABC_onetime_history_sales_orders)
+2. Ingest regional mapping data from flat file into Bronze layer (b_um_xyz.ABC_onetime_history_sales_org_plant_xref)
 
 ### 7.3 Data Transformation:
 
-1. Transform ingested data by joining historical sales order data with regional mapping data on product and LOC.
-2. Apply mapping rules to populate key fields: Sales Organization, Region, Sales Office, Plant, Planning Partner, Demand Quantity, and Return Quantity.
-3. Store transformed data in Silver table: `s_xyz.sales_orders_demand_fcst_ABC_onetime_history`.
+1. Create Silver layer table (s_xyz.sales_orders_demand_fcst_ABC_onetime_history) by joining historical sales order data with regional mapping data on product and location
+2. Apply transformations to populate key fields such as Sales Organization, Region, Sales Office, Plant, Planning Partner, Demand Quantity, and Return Quantity
 
 **Flow Diagram:**
 
-Historical Sales Order Data → Bronze Layer → Silver Layer → Gold Layer
-Regional Mapping Data → Bronze Layer → Silver Layer
-
-**Execution Steps:**
-
-1. Ingest data into Bronze layer.
-2. Transform data in Silver layer.
-3. Create Gold view: `g_external.v_sales_orders_demand_fcst_ABC_onetime_history`.
+```
+Bronze Layer (b_um_xyz.ABC_onetime_history_sales_orders)
+                  |
+                  |
+                  v
+Silver Layer (s_xyz.sales_orders_demand_fcst_ABC_onetime_history)
+                  |
+                  |
+                  v
+Gold Layer (g_external.v_sales_orders_demand_fcst_ABC_onetime_history)
+```
 
 **Schema TableName Description**
 
 | Schema | TableName | Description |
 | --- | --- | --- |
-| b_um_xyz | ABC_onetime_history_sales_orders | Bronze table for historical sales order data |
-| b_um_xyz | ABC_onetime_history_sales_org_plant_xref | Bronze table for regional mapping data |
-| s_xyz | sales_orders_demand_fcst_ABC_onetime_history | Silver table for transformed data |
-| g_external | v_sales_orders_demand_fcst_ABC_onetime_history | Gold view for demand forecasting |
+| b_um_xyz | ABC_onetime_history_sales_orders | Bronze layer table for historical sales order data |
+| b_um_xyz | ABC_onetime_history_sales_org_plant_xref | Bronze layer table for regional mapping data |
+| s_xyz | sales_orders_demand_fcst_ABC_onetime_history | Silver layer table for transformed data |
+| g_external | v_sales_orders_demand_fcst_ABC_onetime_history | Gold layer view for consumable data |
 
 ### 7.4 Data Export:
 
-1. Export transformed data from Gold view to a CSV file.
-2. Store CSV file in ADLS path: `abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_ABC_onetime_SCM_demand_history.csv`.
+1. Create CSV extract from Gold layer view (g_external.v_sales_orders_demand_fcst_ABC_onetime_history)
+2. Export CSV file to abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_ABC_onetime_SCM_demand_history.csv
 
-### 7.5 Data Processing
+### 7.5 AMO KT:
+N/A
+
+### 7.6 Data:
+Data is stored from source to target in the following locations:
+* Bronze layer: b_um_xyz.ABC_onetime_history_sales_orders and b_um_xyz.ABC_onetime_history_sales_org_plant_xref
+* Silver layer: s_xyz.sales_orders_demand_fcst_ABC_onetime_history
+* Gold layer: g_external.v_sales_orders_demand_fcst_ABC_onetime_history
+
+### 7.7 Data Processing
 Databricks provides a unified platform for scalable and efficient data processing, powered by Apache Spark as its core engine. Here, Databricks notebooks are orchestrated using Databricks Workflows.
 
-### 7.6 Data Optimization
+### 7.8 Data Optimization
 Regular optimization scripts are scheduled in Databricks to maintain table performance and ensure efficient query execution.
 
-### 7.7 Data Security
+### 7.9 Data Security
 Data access in Databricks is restricted to authorized user groups, such as Data Engineers and Data Analysts, based on their roles and responsibilities.
 
-### 7.8 Data Archiving
+### 7.10 Data Archiving
 Data is archived for 15 days on Azure Data Lake Storage (ADLS).
+
+### 7.11 MLOps
+N/A
+
+### 7.12 Regulatory & Compliance
+N/A
+
+### 7.13 Backup & Recovery
+N/A
+
+### 7.14 Release Management
+
+| CHM# | Summary |
+| --- | --- |
+| CHM-001 | Initial Release |
 
 **8.0 Considerations**
 
@@ -156,7 +182,7 @@ Data is archived for 15 days on Azure Data Lake Storage (ADLS).
 N/A
 
 ### 8.2 Exclusions
-Creation/execution of test scripts.
+Creation/execution of any test script.
 
 ### 8.3 Constraints
 N/A

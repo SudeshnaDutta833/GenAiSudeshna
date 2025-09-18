@@ -1,45 +1,64 @@
-Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
+Here's a Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-* **1. Technical Requirement ID**: TR-DPS-001
+* **1. Technical Requirement ID**
+TR-DPS-001
 
-* **2. In scope and out of scope part(s)**: 
-  * In scope: FR-DPS-001, FR-DPS-002, FR-DPS-003
-  * Out of scope: Creation/execution of test scripts
+* **2. In scope and out of scope part(s)**
+Reference FR-DPS-001, FR-DPS-002, FR-DPS-003. 
+In scope:
+  * Ingestion of ABC historical sales order data and regional mapping data from flat files
+  * Transformation of ingested data into a consumable format
+  * Export of transformed data to a CSV file for downstream consumption
+Out of scope:
+  * Creation/execution of any test script
 
-* **3. Objective**: Implement a PySpark job to ingest, transform, and export ABC historical sales order data for demand forecasting.
+* **3. Objective**
+Implement a PySpark job to ingest, transform, and export ABC historical sales order data for demand planning purposes.
 
-* **4. Target Cluster Configuration**:
+* **4. Target Cluster Configuration**
   * Cluster Name: Demand Planning Cluster
-  * Databricks Runtime Version: 7.3 LTS (or latest compatible version)
+  * Databricks Runtime Version: 10.4 LTS (or latest compatible version)
   * Node Type: Standard_DS3_v2
   * Driver Node: Standard_DS3_v2
-  * Worker Nodes: 2-5 nodes (autoscaling enabled)
+  * Worker Nodes: 2-5 nodes (autoscaling)
   * Autoscaling: Enabled
-  * Auto Termination: Enabled (30 minutes idle time)
-  * Libraries Installed: PySpark, Pandas, NumPy
+  * Auto Termination: Enabled (after 30 minutes of inactivity)
+  * Libraries Installed: 
+    * PySpark
+    * Pandas
+    * NumPy
 
-* **5. Source Data Details**:
-  * Historical Sales Order Data: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order, Flat File, Contains historical sales order data
-  * Regional Mapping Data: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref, Flat File, Contains regional mapping data
+* **5. Source Data Details**
+  * Dataset Name: Historical Sales Order Data
+    * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order
+    * Format: Flat file
+    * Description: Historical sales order data from JDA-ABC system
+  * Dataset Name: Regional Mapping Data
+    * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref
+    * Format: Flat file
+    * Description: Regional mapping data from JDA-ABC system
 
-* **6. Target Data Details**:
-  * Transformed Data: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_ABC_onetime_SCM_demand_history.csv, CSV, Contains transformed data for demand forecasting
+* **6. Target Data Details**
+  * Output Name: Demand Planning Data
+    * Location: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_ABC_onetime_SCM_demand_history.csv
+    * Format: CSV
+    * Description: Transformed data for demand planning purposes
 
-* **7. Job Flow / Pipeline Stages**:
-  * Ingest historical sales order data and regional mapping data into Bronze layer
-  * Transform ingested data into Silver layer
-  * Create Gold view for demand forecasting
-  * Export transformed data to CSV file
+* **7. Job Flow / Pipeline Stages**
+  * Ingestion of historical sales order data and regional mapping data into Bronze layer
+  * Transformation of ingested data into Silver layer
+  * Creation of Gold layer view for consumable data
+  * Export of Gold layer view to CSV file
 
-* **8. Data Transformations / Business Logic**:
-  * Step 1: Ingest data into Bronze layer
-    * Transformation Logic: Read flat files into Bronze tables (`b_um_xyz.ABC_onetime_history_sales_orders` and `b_um_xyz.ABC_onetime_history_sales_org_plant_xref`)
-  * Step 2: Transform data in Silver layer
-    * Transformation Logic: Join historical sales order data with regional mapping data on product and LOC, apply mapping rules to populate key fields
-  * Step 3: Create Gold view
-    * Transformation Logic: Create Gold view (`g_external.v_sales_orders_demand_fcst_ABC_onetime_history`) on top of Silver table
+* **8. Data Transformations / Business Logic**
+  * Step 1: Ingest historical sales order data and regional mapping data into Bronze layer
+    * Transformation Logic: Read flat files into DataFrames and write to Bronze layer tables (b_um_xyz.ABC_onetime_history_sales_orders and b_um_xyz.ABC_onetime_history_sales_org_plant_xref)
+  * Step 2: Join historical sales order data with regional mapping data on product and location
+    * Transformation Logic: Perform inner join on product and location columns
+  * Step 3: Apply transformations to populate key fields
+    * Transformation Logic: Derive Sales Organization, Region, Sales Office, Plant, Planning Partner, Demand Quantity, and Return Quantity using predefined rules
 
-* **9. Error Handling and Logging**:
-  * Log errors and exceptions to a logging table or file
-  * Implement retry mechanism for failed tasks
-  * Notify stakeholders in case of job failure or errors
+* **9. Error Handling and Logging**
+  * Log errors and exceptions to a designated log file or table
+  * Implement try-except blocks to handle potential errors during data ingestion, transformation, and export
+  * Notify Data Engineers and Technical Leads in case of critical errors or failures
