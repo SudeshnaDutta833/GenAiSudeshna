@@ -1,54 +1,48 @@
 Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-* **Technical Requirement ID**: TR-DPS-001
+* 1. Technical Requirement ID: TR-DPS-001
 
-* **In scope and out of scope part(s)**: 
-  * In scope: FR-DPS-001, FR-DPS-002, FR-DPS-003 
-  * Out of scope: Creation/execution of test scripts
+* 2. In scope and out of scope part(s):
+	+ In scope: FR-DPS-001 (Ingestion of ABC sales order delta data from ECC, Transformation of data to include key organizational attributes, Export of transformed data to a CSV file)
+	+ Out of scope: Creation/execution of test scripts
 
-* **Objective**: Implement a PySpark job to ingest, transform, and export ABC historical sales order data for global demand planning.
+* 3. Objective: Implement a PySpark job to ingest, transform, and export ABC sales order delta data for global demand planning.
 
-* **Target Cluster Configuration**:
-  * Cluster Name: Data Processing Cluster
-  * Databricks Runtime Version: 7.3.x-scala2.12
-  * Node Type: Standard_DS3_v2
-  * Driver Node: 1 x Standard_DS3_v2
-  * Worker Nodes: 2-5 x Standard_DS3_v2 (autoscaling)
-  * Autoscaling: Enabled
-  * Auto Termination: Enabled (after 30 minutes of inactivity)
-  * Libraries Installed: PySpark, Pandas, NumPy
+* 4. Target Cluster Configuration:
+	+ Cluster Name: Demand Planning Cluster
+	+ Databricks Runtime Version: 7.3.x-scala2.12
+	+ Node Type: Standard_DS3_v2
+	+ Driver Node: Standard_DS3_v2
+	+ Worker Nodes: 2-4 ( Autoscaling enabled)
+	+ Autoscaling: Enabled (min: 2, max: 4)
+	+ Auto Termination: Enabled (30 minutes)
+	+ Libraries Installed: PySpark, pandas, numpy
 
-* **Source Data Details**:
-  * Dataset Name: Historical Sales Order Data
-  * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order
-  * Format: Flat File (CSV)
-  * Description: Historical sales order data from JDA-ABC system
-  * Dataset Name: Regional Mapping Data
-  * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref
-  * Format: Flat File (CSV)
-  * Description: Regional mapping data from JDA-ABC system
+* 5. Source Data Details:
+	+ ECC Sales Order Delta Data:
+		- Location: ADLS Path (provided in input file)
+		- Format: CSV
+		- Description: ECC sales order delta data
 
-* **Target Data Details**:
-  * Output Name: Transformed Sales Order Data
-  * Location: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_ABC_onetime_SCM_demand_history.csv
-  * Format: CSV
-  * Description: Transformed historical sales order data for SCM demand forecasting
+* 6. Target Data Details:
+	+ Transformed Data:
+		- Output Name: EVST_SCM_demand_history.csv
+		- Location: ADLS Path (to be configured)
+		- Format: CSV
+		- Description: Transformed ABC sales order delta data for global demand planning
 
-* **Job Flow / Pipeline Stages**:
-  * Stage 1: Ingest historical sales order data and regional mapping data from flat files into Bronze layer tables.
-  * Stage 2: Transform data by joining historical sales order data with regional mapping data and applying transformation rules.
-  * Stage 3: Create a Gold layer view by selecting required columns from the Silver layer table.
-  * Stage 4: Export the Gold layer view to a CSV file.
+* 7. Job Flow / Pipeline Stages:
+	+ Stage 1: Ingest ECC sales order delta data into a bronze table
+	+ Stage 2: Transform data to include key organizational attributes (create lookup table, derive sales office value, segregate sales orders, update organizational elements, etc.)
+	+ Stage 3: Export transformed data to a CSV file
 
-* **Data Transformations / Business Logic**:
-  * Step 1: Ingest historical sales order data and regional mapping data into Bronze layer tables.
-  * Transformation Logic: Use Databricks notebooks to read data from ADLS paths.
-  * Step 2: Join historical sales order data with regional mapping data on product and LOC.
-  * Transformation Logic: Apply transformation rules to populate key fields such as Sales Organization, Region, Sales Office, Plant, Planning Partner, Demand Quantity, and Return Quantity.
-  * Step 3: Create a Gold layer view by selecting required columns from the Silver layer table.
-  * Transformation Logic: Use Databricks notebooks to create a view with required columns.
+* 8. Data Transformations / Business Logic:
+	+ Step 1: Create a lookup table based on the join condition of ship-to country and customer classification values
+	+ Step 2: Derive sales office value using the lookup table
+	+ Step 3: Segregate sales orders into Revenue, Non-Rev, or Customer Consignment based on Sales Doc Type
+	+ Step 4: Update organizational elements, master data attributes, transactional data quantities, units of measure, and quantity conversions to the EA (Each) unit of measure
 
-* **Error Handling and Logging**:
-  * Use try-except blocks to catch and log exceptions.
-  * Log errors and exceptions to a logging table or file.
-  * Use Databricks notebook workflows to handle errors and exceptions.
+* 9. Error Handling and Logging:
+	+ Log errors and exceptions in a separate log file
+	+ Implement retry mechanism for failed tasks
+	+ Notify data engineers and analysts in case of job failure

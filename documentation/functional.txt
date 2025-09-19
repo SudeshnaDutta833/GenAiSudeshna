@@ -1,23 +1,22 @@
 Here is the detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD):
 
-**Technical Requirement ID**
+**1. Technical Requirement ID**
 RITM12345-OSD-DPS
 
-**Related Functional Requirement(s)**
-FR-DPS-001, FR-DPS-002, FR-DPS-003
+**2. Related Functional Requirement(s)**
+FR-DPS-001: To support accurate global demand planning, the ABC sales order delta data must include key organizational attributes.
 
-**Document Signatures**
+**3. Document Signatures**
 
 | Role | Name | Signature | Date |
 | --- | --- | --- | --- |
-| Functional Lead | ABC | Signature | Date |
-| Technical Lead | XYZ | Signature | Date |
+| Functional Lead | ABC |  |  |
 
-**Document Revision History**
+**4. Document Revision History**
 
 | Revision | Author | Reason for Revision |
 | --- | --- | --- |
-| 1.0 | ABC | Initial Document Creation |
+| 1.0 |  | Initial Document |
 
 **Table of Contents**
 
@@ -32,13 +31,14 @@ FR-DPS-001, FR-DPS-002, FR-DPS-003
 9.0 Appendices / Attachments
 
 **1.0 Purpose**
-To design and implement a data processing pipeline to ingest, transform, and export ABC historical sales order data for global demand planning.
+To design and implement a data pipeline to ingest, transform, and export ABC sales order delta data for global demand planning.
 
 **2.0 Scope**
 2.1: In scope for this document is:
-* Ingestion of ABC historical sales order data and regional mapping data from flat files
-* Transformation of data using Databricks notebooks
-* Export of transformed data to a CSV file for SCM demand forecasting
+* Ingestion of ABC sales order delta data from ECC
+* Transformation of data to include key organizational attributes
+* Export of transformed data to a CSV file
+
 2.2: Out of scope for this document is:
 * Creation/execution of test scripts
 
@@ -46,139 +46,153 @@ To design and implement a data processing pipeline to ingest, transform, and exp
 
 | Term / Abbreviation | Definition |
 | --- | --- |
+| ECC | ERP Central Component |
 | ADLS | Azure Data Lake Storage |
-| JDA | JDA-ABC system |
-| SCM | Supply Chain Management |
+| DPS | Demand Planning System |
 
 **4.0 Roles and Responsibilities**
 
-* Data Engineer: Responsible for designing and implementing the data processing pipeline
-* Functional Lead: Responsible for providing business requirements and validating the output
+* Data Engineers: Responsible for designing and implementing the data pipeline
+* Data Analysts: Responsible for validating the transformed data
 
 **5.0 References**
-Implement a PySpark job to ingest, transform, and export ABC historical sales order data for global demand planning.
+Implement a PySpark job to ingest, transform, and export ABC sales order delta data.
 
 **5.1 Data Product Identification**
-The data product is identified as "ABC Historical Sales Order Data" for SCM demand forecasting.
+s_xyz.sales_orders_demand_fcst_everest
 
 **5.2 Data Product Specification**
-The data product is expected to provide accurate and transformed historical sales order data for global demand planning.
+The data product is designed to provide transformed ABC sales order delta data for global demand planning.
 
 **6.0 System Design & Configuration**
 Refer to the mapping provided in the input file.
 
 **7.0 Data Product Design**
 
-### 7.1 Data Sources
+**7.1 Data Sources**
 
 | Source | Description | Columns | ADLS Path |
 | --- | --- | --- | --- |
-| JDA-ABC | Historical sales order data | DMDUNIT, DMDGROUP, LOC, STARTDATE, DUR, TYPE, EVENT, QTY, HISTSTREAM | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order |
-| JDA-ABC | Regional mapping data | Product, LOC, REGION/Sales Org, COUNTRY, CHANNEL | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref |
+| ECC Sales Order | ECC sales order data | Various |  |
 
-#### 7.1.1 Input File layout:
+**7.1.1 Input File layout:**
 
 | FieldName | Description | Mandatory | Comments |
 | --- | --- | --- | --- |
-| DMDUNIT | ABC Model material number | Yes |  |
-| DMDGROUP | Type of Sales (Samples/Consign/Sales) | Yes |  |
-| LOC | Country code | Yes |  |
-| STARTDATE | Transaction date | Yes |  |
-| QTY | Quantity | Yes |  |
-| HISTSTREAM | History stream indicator | Yes |  |
+| VBPA-VBELN | Sales Order Number | Yes |  |
+| VBAP-MATNR | Material Number | Yes |  |
+| VBAP-KUNNR | Sold-to Party | Yes |  |
+| ... | ... | ... | ... |
 
-### 7.2 Data Ingestion:
+**7.2 Data Ingestion:**
+Step 1: Ingest ECC sales order delta data into a bronze table.
 
-1. Ingest historical sales order data and regional mapping data from flat files into Bronze layer tables.
-2. Use Databricks notebooks to read data from ADLS paths.
+**7.3 Data Transformation:**
 
-### 7.3 Data Transformation:
+1. Create a lookup table based on the join condition of ship-to country and customer classification values.
+2. Derive sales office value using the lookup table.
+3. Segregate sales orders into Revenue, Non-Rev, or Customer Consignment based on Sales Doc Type.
+4. Update organizational elements, master data attributes, transactional data quantities, units of measure, and quantity conversions to the EA (Each) unit of measure.
 
-1. Create a Silver layer table by joining historical sales order data with regional mapping data on product and LOC.
-2. Apply transformation rules to populate key fields such as Sales Organization, Region, Sales Office, Plant, Planning Partner, Demand Quantity, and Return Quantity.
-3. Create a Gold layer view by selecting required columns from the Silver layer table.
+**Flow Diagram:**
 
-Flow Diagram:
+```
+          +---------------+
+          |  ECC Sales   |
+          |  Order Delta  |
+          +---------------+
+                  |
+                  |
+                  v
+          +---------------+
+          | Bronze Table  |
+          +---------------+
+                  |
+                  |
+                  v
+          +---------------+
+          | Silver Table  |
+          |  (s_xyz.sales_  |
+          |  orders_demand_  |
+          |  fcst_everest)  |
+          +---------------+
+                  |
+                  |
+                  v
+          +---------------+
+          | Gold View     |
+          |  (g_external.v_  |
+          |  sales_orders_  |
+          |  demand_fcst_everest) |
+          +---------------+
+                  |
+                  |
+                  v
+          +---------------+
+          | CSV Export    |
+          +---------------+
+```
 
-* Bronze Layer (Raw data ingestion)
-	+ Historical sales order data
-	+ Regional mapping data
-* Silver Layer (Data transformation)
-	+ Join historical sales order data with regional mapping data
-	+ Apply transformation rules
-* Gold Layer (Filtered and aggregated data)
-	+ Select required columns from Silver layer table
-
-Schema TableName Description:
+**7.3.1 Schema TableName Description**
 
 | Schema | TableName | Description |
 | --- | --- | --- |
-| b_um_xyz | ABC_onetime_history_sales_orders | Bronze layer table for historical sales order data |
-| b_um_xyz | ABC_onetime_history_sales_org_plant_xref | Bronze layer table for regional mapping data |
-| s_xyz | sales_orders_demand_fcst_ABC_onetime_history | Silver layer table for transformed data |
-| g_external | v_sales_orders_demand_fcst_ABC_onetime_history | Gold layer view for filtered and aggregated data |
+| s_xyz | sales_orders_demand_fcst_everest | Silver table containing transformed data |
+| g_external | v_sales_orders_demand_fcst_everest | Gold view containing final transformed data |
 
-### 7.4 Data Export:
+**7.4 Data Export:**
+Step 1: Export the gold view to a CSV file named EVST_SCM_demand_history.csv.
 
-1. Export the Gold layer view to a CSV file.
-2. Use Databricks notebooks to write data to ADLS path.
-
-### 7.5 AMO KT:
+**7.5 AMO KT:**
 N/A
 
-### 7.6 Data Storage:
-Data is stored from source to target in the following locations:
-* Bronze Layer: ADLS path - abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/
-* Silver Layer: Databricks table - s_xyz.sales_orders_demand_fcst_ABC_onetime_history
-* Gold Layer: Databricks view - g_external.v_sales_orders_demand_fcst_ABC_onetime_history
-* Export: ADLS path - abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_ABC_onetime_SCM_demand_history.csv
+**7.6 Data Storage:**
+Data is stored in Azure Data Lake Storage (ADLS).
 
-### 7.7 Data Processing:
-Databricks provides a unified platform for scalable and efficient data processing, powered by Apache Spark as its core engine. Here, Databricks notebooks are orchestrated using Databricks Workflows.
+**7.7 Data Processing:**
+Databricks provides a unified platform for scalable and efficient data processing, powered by Apache Spark as its core engine.
 
-### 7.8 Data Optimization:
+**7.8 Data Optimization:**
 Regular optimization scripts are scheduled in Databricks to maintain table performance and ensure efficient query execution.
 
-### 7.9 Data Security:
-Data access in Databricks is restricted to authorized user groups, such as Data Engineers and Data Analysts, based on their roles and responsibilities.
+**7.9 Data Security:**
+Data access in Databricks is restricted to authorized user groups, such as Data Engineers and Data Analysts.
 
-### 7.10 Data Archiving:
+**7.10 Data Archiving:**
 Data is archived for 15 days on Azure Data Lake Storage (ADLS).
 
-### 7.11 MLOps:
+**7.11 MLOps:**
 N/A
 
-### 7.12 Regulatory & Compliance:
+**7.12 Regulatory & Compliance:**
 N/A
 
-### 7.13 Backup & Recovery:
+**7.13 Backup & Recovery:**
 N/A
 
-### 7.14 Release Management:
+**7.14 Release Management:**
 
 | CHM# | Summary |
 | --- | --- |
-| CHM-001 | Initial release of data processing pipeline |
+|  | Initial Release |
 
 **8.0 Considerations**
 
-### 8.1 Assumptions:
+**8.1 Assumptions:**
 N/A
 
-### 8.2 Exclusions:
+**8.2 Exclusions:**
 Creation/execution of test scripts.
 
-### 8.3 Constraints:
+**8.3 Constraints:**
 N/A
 
-### 8.4 Dependencies:
+**8.4 Dependencies:**
 N/A
 
-### 8.5 Decisions:
+**8.5 Decisions:**
 N/A
 
 **9.0 Appendices / Attachments**
 
-* Mapping document from input PDF
-* Data product specification document
-* System design and configuration document
+* Mapping document from input file.
