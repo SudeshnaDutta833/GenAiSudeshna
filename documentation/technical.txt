@@ -2,60 +2,53 @@ Here is the Technical Requirement Document (TRD) based on the provided Functiona
 
 * **Technical Requirement ID**: TR-DPS-001
 
-* **In scope and out of scope part(s)**:
-	+ In scope: FR-DPS-001, FR-DPS-002, FR-DPS-003 (Ingest ABC historical sales order data, Enrich dataset with regional Sales Organization and Plant mapping, Create gold view and CSV extract)
-	+ Out of scope: Creation/execution of test scripts
+* **In scope and out of scope part(s)**: 
+  * In scope: FR-DPS-001, FR-DPS-002, FR-DPS-003 
+  * Out of scope: Creation/execution of test scripts
 
-* **Objective**: Implement a PySpark job to ingest, transform, and export ABC historical sales order data for demand planning.
+* **Objective**: Implement a PySpark job to ingest, transform, and export ABC historical sales order data for global demand planning.
 
 * **Target Cluster Configuration**:
-	+ Cluster Name: Demand Planning Cluster
-	+ Databricks Runtime Version: 7.3.x-scala2.12
-	+ Node Type: Standard_DS3_v2
-	+ Driver Node: Standard_DS3_v2
-	+ Worker Nodes: 2-4 (autoscaling)
-	+ Autoscaling: Enabled
-	+ Auto Termination: 30 minutes
-	+ Libraries Installed: PySpark, pandas, numpy
+  * Cluster Name: Data Processing Cluster
+  * Databricks Runtime Version: 7.3.x-scala2.12
+  * Node Type: Standard_DS3_v2
+  * Driver Node: 1 x Standard_DS3_v2
+  * Worker Nodes: 2-5 x Standard_DS3_v2 (autoscaling)
+  * Autoscaling: Enabled
+  * Auto Termination: Enabled (after 30 minutes of inactivity)
+  * Libraries Installed: PySpark, Pandas, NumPy
 
 * **Source Data Details**:
-	+ Dataset Name: Historical Sales Order Data
-	+ Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order
-	+ Format: CSV
-	+ Description: Historical sales order data from JDA-ABC system
-	+ Dataset Name: Regional Mapping Data
-	+ Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref
-	+ Format: CSV
-	+ Description: Regional mapping data from JDA-ABC system
+  * Dataset Name: Historical Sales Order Data
+  * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order
+  * Format: Flat File (CSV)
+  * Description: Historical sales order data from JDA-ABC system
+  * Dataset Name: Regional Mapping Data
+  * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref
+  * Format: Flat File (CSV)
+  * Description: Regional mapping data from JDA-ABC system
 
 * **Target Data Details**:
-	+ Output Name: Gold View
-	+ Location: g_external.v_sales_orders_demand_fcst_ABC_onetime_history
-	+ Format: Delta Lake
-	+ Description: Gold view for demand planning data
-	+ Output Name: CSV Extract
-	+ Location: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_ABC_onetime_SCM_demand_history.csv
-	+ Format: CSV
-	+ Description: CSV extract from gold view
+  * Output Name: Transformed Sales Order Data
+  * Location: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_ABC_onetime_SCM_demand_history.csv
+  * Format: CSV
+  * Description: Transformed historical sales order data for SCM demand forecasting
 
 * **Job Flow / Pipeline Stages**:
-	+ Ingest historical sales order data and regional mapping data into Bronze layer
-	+ Create Silver table by enriching dataset with regional Sales Organization and Plant mapping
-	+ Create Gold view from Silver table
-	+ Export Gold view to CSV extract
+  * Stage 1: Ingest historical sales order data and regional mapping data from flat files into Bronze layer tables.
+  * Stage 2: Transform data by joining historical sales order data with regional mapping data and applying transformation rules.
+  * Stage 3: Create a Gold layer view by selecting required columns from the Silver layer table.
+  * Stage 4: Export the Gold layer view to a CSV file.
 
 * **Data Transformations / Business Logic**:
-	+ Step: Ingest data into Bronze layer
-	+ Description: Ingest historical sales order data and regional mapping data into Bronze tables
-	+ Transformation Logic: Read CSV files from ADLS, write to Bronze tables
-	+ Step: Enrich dataset with regional Sales Organization and Plant mapping
-	+ Description: Create Silver table by joining historical sales order data with regional mapping data
-	+ Transformation Logic: Join historical sales order data with regional mapping data on product and LOC, populate key fields
-	+ Step: Create Gold view
-	+ Description: Create Gold view from Silver table
-	+ Transformation Logic: Read Silver table, create Gold view
+  * Step 1: Ingest historical sales order data and regional mapping data into Bronze layer tables.
+  * Transformation Logic: Use Databricks notebooks to read data from ADLS paths.
+  * Step 2: Join historical sales order data with regional mapping data on product and LOC.
+  * Transformation Logic: Apply transformation rules to populate key fields such as Sales Organization, Region, Sales Office, Plant, Planning Partner, Demand Quantity, and Return Quantity.
+  * Step 3: Create a Gold layer view by selecting required columns from the Silver layer table.
+  * Transformation Logic: Use Databricks notebooks to create a view with required columns.
 
 * **Error Handling and Logging**:
-	+ Log errors and exceptions to Databricks logs
-	+ Implement retry mechanism for failed tasks
-	+ Notify data engineers and analysts in case of errors or exceptions
+  * Use try-except blocks to catch and log exceptions.
+  * Log errors and exceptions to a logging table or file.
+  * Use Databricks notebook workflows to handle errors and exceptions.

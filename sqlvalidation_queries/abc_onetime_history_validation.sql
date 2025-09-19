@@ -1,85 +1,96 @@
--- Validation Queries for ABC Onetime History Processing
-
--- 1. Validate Bronze Layer Data Ingestion
+-- Validation Query 1: Check if bronze tables have data
 %sql
-SELECT COUNT(*) AS total_records FROM b_um_xyz.ABC_onetime_history_sales_orders;
+SELECT 'ABC_onetime_history_sales_orders' as table_name, COUNT(*) as record_count 
+FROM b_um_xyz.ABC_onetime_history_sales_orders
+UNION ALL
+SELECT 'ABC_onetime_history_sales_org_plant_xref' as table_name, COUNT(*) as record_count 
+FROM b_um_xyz.ABC_onetime_history_sales_org_plant_xref;
 
+-- Validation Query 2: Verify only HIST and RTNS data is loaded (no FCST data)
 %sql
-SELECT COUNT(*) AS total_records FROM b_um_xyz.ABC_onetime_history_sales_org_plant_xref;
-
--- 2. Validate Data Types in Bronze Layer
-%sql
-DESCRIBE TABLE b_um_xyz.ABC_onetime_history_sales_orders;
-
-%sql
-DESCRIBE TABLE b_um_xyz.ABC_onetime_history_sales_org_plant_xref;
-
--- 3. Check for HIST and RTNS Records Only (No FCST)
-%sql
-SELECT HISTSTREAM, COUNT(*) AS record_count
+SELECT HISTSTREAM, COUNT(*) as record_count 
 FROM b_um_xyz.ABC_onetime_history_sales_orders
 GROUP BY HISTSTREAM
 ORDER BY HISTSTREAM;
 
--- 4. Validate Silver Layer Transformation
+-- Validation Query 3: Check for missing mappings in silver layer
 %sql
-SELECT COUNT(*) AS total_records FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history;
+SELECT h.DMDUNIT, h.LOC, 'Missing in mapping table' as issue
+FROM b_um_xyz.ABC_onetime_history_sales_orders h
+LEFT JOIN b_um_xyz.ABC_onetime_history_sales_org_plant_xref x
+  ON h.DMDUNIT = x.Product AND h.LOC = x.LOC
+WHERE x.Product IS NULL
+  AND h.HISTSTREAM IN ('HIST', 'RTNS')
+LIMIT 100;
 
--- 5. Check Planning Partner Mapping
+-- Validation Query 4: Validate Planning Partner mapping
 %sql
 SELECT 
   DMDGROUP,
-  Planning_Partner,
-  COUNT(*) AS record_count
-FROM b_um_xyz.ABC_onetime_history_sales_orders hist
-JOIN s_xyz.sales_orders_demand_fcst_ABC_onetime_history silver
-  ON hist.DMDUNIT = silver.ABC_Model_Number
-  AND hist.STARTDATE = TO_DATE(CONCAT(SUBSTRING(CAST(silver.Cal_month AS STRING), 1, 4), '-', 
-                                      SUBSTRING(CAST(silver.Cal_month AS STRING), 5, 2), '-01'))
-GROUP BY DMDGROUP, Planning_Partner
+  CASE 
+    WHEN DMDGROUP = 'SALES' THEN 'R'
+    WHEN DMDGROUP = 'SAMPLES' THEN 'N'
+    WHEN DMDGROUP = 'CONSIGN' THEN 'C'
+    ELSE 'Unknown'
+  END AS Expected_Planning_Partner,
+  COUNT(*) as record_count
+FROM b_um_xyz.ABC_onetime_history_sales_orders
+WHERE HISTSTREAM IN ('HIST', 'RTNS')
+GROUP BY DMDGROUP
 ORDER BY DMDGROUP;
 
--- 6. Validate Join Between History and Regional Mapping
+-- Validation Query 5: Check silver layer data completeness
 %sql
 SELECT 
-  COUNT(*) AS total_history_records,
-  SUM(CASE WHEN xref.Product IS NOT NULL AND xref.LOC IS NOT NULL THEN 1 ELSE 0 END) AS matched_records,
-  SUM(CASE WHEN xref.Product IS NULL OR xref.LOC IS NULL THEN 1 ELSE 0 END) AS unmatched_records
-FROM b_um_xyz.ABC_onetime_history_sales_orders hist
-LEFT JOIN b_um_xyz.ABC_onetime_history_sales_org_plant_xref xref
-  ON hist.DMDUNIT = xref.Product AND hist.LOC = xref.LOC;
+  COUNT(*) as total_records,
+  SUM(CASE WHEN ABC_Model_Number IS NULL THEN 1 ELSE 0 END) as null_product,
+  SUM(CASE WHEN Country IS NULL THEN 1 ELSE 0 END) as null_country,
+  SUM(CASE WHEN Sales_Organization IS NULL THEN 1 ELSE 0 END) as null_sales_org,
+  SUM(CASE WHEN PLANT IS NULL THEN 1 ELSE 0 END) as null_plant,
+  SUM(CASE WHEN Planning_Partner IS NULL THEN 1 ELSE 0 END) as null_planning_partner
+FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history;
 
--- 7. Validate Gold View Data
+-- Validation Query 6: Verify demand quantity calculation
 %sql
-SELECT COUNT(*) AS total_records FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history;
+SELECT 
+  'HIST' as source_type,
+  COUNT(*) as record_count,
+  SUM(QTY) as total_qty_from_source,
+  (SELECT SUM(Demand_Quantity_MTS) FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history) as total_demand_qty_in_silver
+FROM b_um_xyz.ABC_onetime_history_sales_orders
+WHERE HISTSTREAM = 'HIST';
 
--- 8. Check for NULL Values in Required Fields
+-- Validation Query 7: Verify return quantity calculation
 %sql
-SELECT
-  SUM(CASE WHEN Product IS NULL THEN 1 ELSE 0 END) AS null_product,
-  SUM(CASE WHEN Country IS NULL THEN 1 ELSE 0 END) AS null_country,
-  SUM(CASE WHEN Sales_Org IS NULL THEN 1 ELSE 0 END) AS null_sales_org,
-  SUM(CASE WHEN ZPLANT IS NULL THEN 1 ELSE 0 END) AS null_plant,
-  SUM(CASE WHEN Sales_Office IS NULL THEN 1 ELSE 0 END) AS null_sales_office,
-  SUM(CASE WHEN Planning_Partner IS NULL THEN 1 ELSE 0 END) AS null_planning_partner
-FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history;
+SELECT 
+  'RTNS' as source_type,
+  COUNT(*) as record_count,
+  SUM(QTY) as total_qty_from_source,
+  (SELECT SUM(Returns_Qty_MTS) FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history) as total_return_qty_in_silver
+FROM b_um_xyz.ABC_onetime_history_sales_orders
+WHERE HISTSTREAM = 'RTNS';
 
--- 9. Validate Demand and Return Quantities
+-- Validation Query 8: Check gold view data
 %sql
-SELECT
-  SUM(Demand_Quantity_MTS) AS total_demand_qty,
-  SUM(Returns_Qty_MTS) AS total_returns_qty
-FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history;
+SELECT COUNT(*) as record_count FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history;
 
--- 10. Sample Data from Each Layer for Manual Verification
+-- Validation Query 9: Sample data from gold view
 %sql
-SELECT * FROM b_um_xyz.ABC_onetime_history_sales_orders LIMIT 10;
+SELECT * FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history
+LIMIT 10;
 
+-- Validation Query 10: Check for duplicate records in gold view
 %sql
-SELECT * FROM b_um_xyz.ABC_onetime_history_sales_org_plant_xref LIMIT 10;
-
-%sql
-SELECT * FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history LIMIT 10;
-
-%sql
-SELECT * FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history LIMIT 10;
+SELECT 
+  Product, 
+  Country, 
+  Sales_Org, 
+  ZPLANT, 
+  Planning_Partner, 
+  Cal_month,
+  COUNT(*) as record_count
+FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history
+GROUP BY Product, Country, Sales_Org, ZPLANT, Planning_Partner, Cal_month
+HAVING COUNT(*) > 1
+ORDER BY record_count DESC
+LIMIT 100;
