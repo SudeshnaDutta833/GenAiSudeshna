@@ -1,55 +1,107 @@
+-- Validation queries to check data quality and transformation correctness
+
+-- 1. Check bronze tables record count
 %sql
--- Validate bronze table for sales orders
-SELECT COUNT(*) AS total_records, 
-       COUNT(DISTINCT DMDUNIT) AS distinct_products,
-       COUNT(DISTINCT LOC) AS distinct_locations,
-       SUM(CASE WHEN HISTSTREAM = 'HIST' THEN 1 ELSE 0 END) AS hist_records,
-       SUM(CASE WHEN HISTSTREAM = 'RTNS' THEN 1 ELSE 0 END) AS returns_records
-FROM b_um_xyz.ABC_onetime_history_sales_orders;
+SELECT COUNT(*) AS record_count FROM b_um_xyz.ABC_onetime_history_sales_orders;
 
 %sql
--- Validate bronze table for sales org plant cross reference
-SELECT COUNT(*) AS total_records,
-       COUNT(DISTINCT Product) AS distinct_products,
-       COUNT(DISTINCT LOC) AS distinct_locations,
-       COUNT(DISTINCT REGION_SALES_ORG) AS distinct_sales_orgs
-FROM b_um_xyz.ABC_onetime_history_sales_org_plant_xref;
+SELECT COUNT(*) AS record_count FROM b_um_xyz.ABC_onetime_history_sales_org_plant_xref;
 
+-- 2. Check silver table record count
 %sql
--- Validate silver table data
-SELECT COUNT(*) AS total_records,
-       COUNT(DISTINCT ABCModelNumber) AS distinct_products,
-       COUNT(DISTINCT Country) AS distinct_countries,
-       COUNT(DISTINCT SalesOrganization) AS distinct_sales_orgs,
-       SUM(DemandQuantityMTS) AS total_demand,
-       SUM(ReturnsQtyMTS) AS total_returns
-FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history;
+SELECT COUNT(*) AS record_count FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history;
 
+-- 3. Validate gold view record count
 %sql
--- Validate gold view data
-SELECT COUNT(*) AS total_records,
-       COUNT(DISTINCT ABCModelNumber) AS distinct_products,
-       COUNT(DISTINCT Country) AS distinct_countries,
-       COUNT(DISTINCT SalesOrganization) AS distinct_sales_orgs,
-       SUM(DemandQuantityMTS) AS total_demand,
-       SUM(ReturnsQtyMTS) AS total_returns
-FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history;
+SELECT COUNT(*) AS record_count FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history;
 
+-- 4. Check distribution of planning partner values
 %sql
--- Validate planning partner logic
-SELECT PlanningPartner, COUNT(*) AS record_count
-FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history
+SELECT 
+  PlanningPartner, 
+  COUNT(*) AS record_count 
+FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history 
 GROUP BY PlanningPartner
 ORDER BY PlanningPartner;
 
+-- 5. Verify HIST records have demand quantities
 %sql
--- Validate country transformation
 SELECT 
-    so.LOC AS original_loc,
-    s.Country AS transformed_country,
-    COUNT(*) AS record_count
+  COUNT(*) AS record_count
+FROM b_um_xyz.ABC_onetime_history_sales_orders 
+WHERE HISTSTREAM = 'HIST' AND QTY > 0;
+
+%sql
+SELECT 
+  COUNT(*) AS record_count
+FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history 
+WHERE DemandQuantityMTS > 0;
+
+-- 6. Verify RTNS records have return quantities
+%sql
+SELECT 
+  COUNT(*) AS record_count
+FROM b_um_xyz.ABC_onetime_history_sales_orders 
+WHERE HISTSTREAM = 'RTNS' AND QTY > 0;
+
+%sql
+SELECT 
+  COUNT(*) AS record_count
+FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history 
+WHERE ReturnsQtyMTS > 0;
+
+-- 7. Check for any null values in key fields
+%sql
+SELECT 
+  COUNT(*) AS null_apo_planning_version
+FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history 
+WHERE APOPlanningVersion IS NULL;
+
+%sql
+SELECT 
+  COUNT(*) AS null_abc_model_number
+FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history 
+WHERE ABCModelNumber IS NULL;
+
+%sql
+SELECT 
+  COUNT(*) AS null_country
+FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history 
+WHERE Country IS NULL;
+
+-- 8. Check for records without matching sales org plant mapping
+%sql
+SELECT 
+  so.DMDUNIT,
+  so.LOC,
+  COUNT(*) AS record_count
 FROM b_um_xyz.ABC_onetime_history_sales_orders so
+LEFT JOIN b_um_xyz.ABC_onetime_history_sales_org_plant_xref xref
+  ON so.DMDUNIT = xref.Product AND so.LOC = xref.LOC
+WHERE xref.Product IS NULL
+GROUP BY so.DMDUNIT, so.LOC
+ORDER BY record_count DESC
+LIMIT 10;
+
+-- 9. Check if all FCST records are excluded
+%sql
+SELECT 
+  COUNT(*) AS fcst_count
+FROM b_um_xyz.ABC_onetime_history_sales_orders
+WHERE HISTSTREAM = 'FCST';
+
+%sql
+SELECT 
+  COUNT(*) AS fcst_in_silver
+FROM s_xyz.sales_orders_demand_fcst_ABC_onetime_history
+WHERE SourceSystem = 'JDAABC' AND (DemandQuantityMTS = 0 AND ReturnsQtyMTS = 0);
+
+-- 10. Verify date transformation is correct
+%sql
+SELECT 
+  DISTINCT b.STARTDATE AS original_date,
+  s.CalMonth AS transformed_date
+FROM b_um_xyz.ABC_onetime_history_sales_orders b
 JOIN s_xyz.sales_orders_demand_fcst_ABC_onetime_history s
-ON so.DMDUNIT = s.ABCModelNumber
-GROUP BY so.LOC, s.Country
-ORDER BY so.LOC;
+  ON b.DMDUNIT = s.ABCModelNumber
+LIMIT 10;

@@ -1,49 +1,58 @@
-# PySpark code for ingesting data into bronze tables
+# PySpark code for ingesting data from source to bronze layer
 
-from pyspark.sql.functions import input_file_name, current_timestamp
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import current_timestamp, input_file_name
 
-# Define the paths for source data
-sales_source_path = "/path/to/sales/data"
-sales_org_source_path = "/path/to/sales_org/data"
+# Initialize Spark session
+spark = SparkSession.builder.appName("ABC_Data_Ingestion").getOrCreate()
 
-# Ingest data into b_onc.sales bronze table
-def ingest_sales_data():
-    # Read the source data
-    sales_df = spark.read.format("csv") \
+# Define storage account placeholder
+storage_account = "your_storage_account_name"
+
+# Define source paths
+sales_orders_path = f"abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order"
+sales_org_plant_xref_path = f"abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref"
+
+# Ingest sales orders data to bronze layer
+def ingest_sales_orders():
+    # Read the CSV file
+    df_sales_orders = spark.read \
         .option("header", "true") \
         .option("inferSchema", "true") \
-        .load(sales_source_path)
+        .csv(sales_orders_path)
     
-    # Add the source file column
-    sales_df = sales_df.withColumn("SourceFile", input_file_name())
+    # Add source file information
+    df_sales_orders = df_sales_orders \
+        .withColumn("SourceFile", input_file_name())
     
     # Write to bronze table
-    sales_df.write \
+    df_sales_orders.write \
         .format("delta") \
         .mode("overwrite") \
-        .saveAsTable("b_onc.sales")
+        .saveAsTable("b_um_xyz.ABC_onetime_history_sales_orders")
     
-    print("Sales data ingested successfully into bronze layer")
+    print("Sales orders data ingested successfully to bronze layer")
 
-# Ingest data into b_onc.sales_org bronze table
-def ingest_sales_org_data():
-    # Read the source data
-    sales_org_df = spark.read.format("csv") \
+# Ingest sales org plant cross-reference data to bronze layer
+def ingest_sales_org_plant_xref():
+    # Read the CSV file
+    df_sales_org_plant_xref = spark.read \
         .option("header", "true") \
         .option("inferSchema", "true") \
-        .load(sales_org_source_path)
+        .csv(sales_org_plant_xref_path)
     
-    # Add the source file column
-    sales_org_df = sales_org_df.withColumn("SourceFile", input_file_name())
+    # Add source file information
+    df_sales_org_plant_xref = df_sales_org_plant_xref \
+        .withColumn("SourceFile", input_file_name())
     
     # Write to bronze table
-    sales_org_df.write \
+    df_sales_org_plant_xref.write \
         .format("delta") \
         .mode("overwrite") \
-        .saveAsTable("b_onc.sales_org")
+        .saveAsTable("b_um_xyz.ABC_onetime_history_sales_org_plant_xref")
     
-    print("Sales org data ingested successfully into bronze layer")
+    print("Sales org plant cross-reference data ingested successfully to bronze layer")
 
-# Execute the ingestion functions
-ingest_sales_data()
-ingest_sales_org_data()
+# Execute ingestion functions
+ingest_sales_orders()
+ingest_sales_org_plant_xref()

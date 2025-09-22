@@ -1,62 +1,84 @@
-Here is the detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD):
+### 1.0 Purpose
+The purpose of this project is to design and implement a data ingestion and processing pipeline to support accurate global demand planning by incorporating ABC historical sales order data. The data will be sourced from flat files, processed through multiple layers (bronze, silver, and gold), and ultimately generate a CSV extract for downstream applications.
 
-**1.0 Purpose**
+### 2.0 Data Product Design
 
-The purpose of this project is to design and implement a data ingestion and processing pipeline to support accurate global demand planning by including key organizational attributes such as Sales Organization, Region, Sales Office, Plant, Planning partner, Demand quantity, and Return quantity from ABC historical sales order data.
-
-**2.0 Data Product Design**
-
-### 2.1 Data Sources
-
+#### 2.1 Data Sources
 The data sources for this project are two flat files:
+1. ABC Demand History file
+2. ABC Regional, Sales Orgs & Plant mapping file
 
-*   JDA-ABC 5 years Order Demand History file
-*   JDA-ABC Regional, sales orgs & plant mapping data file
+##### 2.1.1 Input File Layout:
 
-#### 2.1.1 Input File layout:
+**Demand History File:**
+| Column Name | Data Type |
+| --- | --- |
+| DMDUNIT | CHAR(40) |
+| DMDGROUP | CHAR(10) |
+| LOC | CHAR(3) |
+| STARTDATE | DATE |
+| DUR | NUMERIC |
+| TYPE | CHAR(1) |
+| EVENT | CHAR(1) |
+| QTY | NUMERIC |
+| HISTSTREAM | CHAR(4) |
 
-The input file layouts are as follows:
+**Regional, Sales Orgs & Plant Mapping File:**
+| Column Name | Data Type |
+| --- | --- |
+| Product | CHAR(40) |
+| LOC | CHAR(3) |
+| REGION/Sales Org | CHAR(4) |
+| COUNTRY | CHAR(20) |
+| CHANNEL | CHAR(20) |
 
-| Source file | Column Name | Data Type |
+#### 2.2 Data Ingestion:
+| Source File | Source File Location | Bronze Table Name |
 | --- | --- | --- |
-| JDA-ABC 5 years Order Demand History | DMDUNIT | CHAR(40) |
-| JDA-ABC 5 years Order Demand History | DMDGROUP | CHAR(10) |
-| JDA-ABC 5 years Order Demand History | LOC | CHAR(3) |
-| JDA-ABC 5 years Order Demand History | STARTDATE | DATE |
-| JDA-ABC 5 years Order Demand History | DUR | NUMERIC |
-| JDA-ABC 5 years Order Demand History | TYPE | CHAR |
-| JDA-ABC 5 years Order Demand History | EVENT | CHAR |
-| JDA-ABC 5 years Order Demand History | QTY | NUMERIC(17,3) |
-| JDA-ABC 5 years Order Demand History | HISTSTREAM | CHAR |
-| JDA-ABC Regional, sales orgs & plant mapping data | Product | CHAR(40) |
-| JDA-ABC Regional, sales orgs & plant mapping data | LOC | CHAR(3) |
-| JDA-ABC Regional, sales orgs & plant mapping data | REGION/Sales Org | CHAR(4) |
-| JDA-ABC Regional, sales orgs & plant mapping data | COUNTRY | CHAR(3) |
-| JDA-ABC Regional, sales orgs & plant mapping data | CHANNEL | CHAR |
+| ABC Demand History | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order | b_um_xyz.ABC_onetime_history_sales_orders |
+| ABC Regional, Sales Orgs & Plant mapping | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref | b_um_xyz.ABC_onetime_history_sales_org_plant_xref |
 
-### 2.2 Data Ingestion:
+#### 2.3 Data Transformation:
+1. **Bronze to Silver:**
+   - Ingest raw data from the bronze layer into the silver layer.
+   - Join the Demand History file with the Regional, Sales Orgs & Plant mapping file on `DMDUNIT = Product` and `LOC = LOC` to enrich the dataset.
+   - Apply transformation rules to populate key fields such as Sales Organization, Region, Sales Office, Plant, and Planning Partner based on the joined data and specific business logic.
 
-The data ingestion details are as follows:
+2. **Silver to Gold:**
+   - Filter the data to include only historical and return data (HISTSTREAM = 'HIST' or 'RTNS').
+   - Create a gold view that aggregates and filters the data for consumption.
 
-| Source file | Source file location | Bronze table name |
-| --- | --- | --- |
-| JDA-ABC 5 years Order Demand History | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order | b_um_xyz.ABC_onetime_history_sales_orders |
-| JDA-ABC Regional, sales orgs & plant mapping data | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref | b_um_xyz.ABC_onetime_history_sales_org_plant_xref |
+#### 2.4 Data Export:
+| Source Table | Extract Name | Extract File Format | Extract Location |
+| --- | --- | --- | --- |
+| g_external.v_sales_orders_demand_fcst_ABC_onetime_history | 5Y_ABC_onetime_SCM_demand_history | CSV | abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/ |
 
-### 2.3 Data Transformation:
-
-The data transformation steps are as follows:
-
-1.  Ingest the JDA-ABC 5 years Order Demand History file and JDA-ABC Regional, sales orgs & plant mapping data file into the bronze layer tables `b_um_xyz.ABC_onetime_history_sales_orders` and `b_um_xyz.ABC_onetime_history_sales_org_plant_xref`, respectively.
-2.  Create a silver layer table `s_xyz.sales_orders_demand_fcst_ABC_onetime_history` by joining the bronze layer tables on the condition `Product = DMDUNIT` and `LOC = LOC`. Apply the necessary transformations to populate the required fields, such as Sales Organization, Region, Sales Office, Plant, Planning partner, Demand quantity, and Return quantity.
-3.  Create a gold layer view `g_external.v_sales_orders_demand_fcst_ABC_onetime_history` on top of the silver layer table.
-
-### 2.4 Data Export
-
-The data export details are as follows:
-
-| Source table | Extract name | Extract location |
-| --- | --- | --- |
-| g_external.v_sales_orders_demand_fcst_ABC_onetime_history | 5Y_ABC_onetime_SCM_demand_history.csv | abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/ |
-
-The extract will be generated in CSV format and will contain the required fields, such as APO Planning Version, ABC Model Number, Country, Sales Office, Sales Organization, PLANT, Planning Partner, Demand Quantity - MTS, Returns Qty - MTS, and other relevant fields.
+#### 2.5 Output File Layout:
+**5Y_ABC_onetime_SCM_demand_history.csv:**
+| Column Name | Data Type |
+| --- | --- |
+| APO Planning Version | CHAR(10) |
+| ABC Model Number | CHAR(40) |
+| Product Planner Code | CHAR(40) |
+| Country | CHAR(3) |
+| Sales Office | CHAR(4) |
+| Sales Organization | CHAR(4) |
+| PLANT | CHAR(4) |
+| Planning Partner | CHAR(10) |
+| Distribution Channel | CHAR(2) |
+| Customer Group | CHAR(3) |
+| Ship-To Party | CHAR(10) |
+| Sold-to party | CHAR(10) |
+| WW Business | CHAR(18) |
+| Strategy Center | CHAR(18) |
+| Product Line | CHAR(18) |
+| Planning Set | CHAR(18) |
+| Product Subset | CHAR(18) |
+| Item Category | CHAR(4) |
+| Sales Document Type | CHAR(4) |
+| Snapshot ID | CHAR(10) |
+| Cal month | NUMERIC(6) |
+| Base Unit of Measure | UNIT(3) |
+| Source system | CHAR(10) |
+| Demand Quantity - MTS | NUMERIC(17,3) |
+| Returns Qty - MTS | NUMERIC(17,3) |

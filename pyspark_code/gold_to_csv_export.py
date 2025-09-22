@@ -1,23 +1,30 @@
-# PySpark code for exporting gold view data to CSV in outbound location
+# PySpark code for exporting gold view data to CSV
 
-from pyspark.sql.functions import current_timestamp, date_format
+from pyspark.sql import SparkSession
 
-# Define the outbound path in ADLS
-outbound_path = "/path/to/outbound/location"
+# Initialize Spark session
+spark = SparkSession.builder.appName("ABC_Gold_to_CSV_Export").getOrCreate()
+
+# Define storage account placeholder
+storage_account = "your_storage_account_name"
+
+# Define output path
+output_path = f"abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/5Y_ABC_onetime_SCM_demand_history.csv"
 
 # Read data from gold view
-gold_view_df = spark.table("g_onc.v_sales_ord_his")
+def export_gold_to_csv():
+    # Read from gold view
+    gold_df = spark.sql("SELECT * FROM g_external.v_sales_orders_demand_fcst_ABC_onetime_history")
+    
+    # Write to CSV
+    gold_df.coalesce(1) \
+        .write \
+        .option("header", "true") \
+        .option("delimiter", ",") \
+        .mode("overwrite") \
+        .csv(output_path)
+    
+    print(f"Gold view data exported successfully to {output_path}")
 
-# Generate a timestamp for the file name
-timestamp = date_format(current_timestamp(), "yyyyMMdd_HHmmss")
-output_file_path = f"{outbound_path}/sales_ord_his_{timestamp}.csv"
-
-# Write the data to CSV format
-gold_view_df.write \
-    .format("csv") \
-    .option("header", "true") \
-    .option("delimiter", ",") \
-    .mode("overwrite") \
-    .save(output_file_path)
-
-print(f"Data exported successfully to {output_file_path}")
+# Execute export function
+export_gold_to_csv()

@@ -1,50 +1,56 @@
 Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-*   **Technical Requirement ID**: TR-DIP-001
-*   **In scope and out of scope part(s)**: 
-    *   FR-2.1: Data Sources (JDA-ABC 5 years Order Demand History file and JDA-ABC Regional, sales orgs & plant mapping data file)
-    *   FR-2.2: Data Ingestion (ingesting data into bronze layer tables)
-    *   FR-2.3: Data Transformation (transforming data into silver layer table and creating gold layer view)
-    *   FR-2.4: Data Export (exporting data from gold layer view to CSV file)
-*   **Objective**: Design and implement a data ingestion and processing pipeline using PySpark to ingest historical sales order data, transform it, and generate output in CSV format for global demand planning.
-*   **Target Cluster Configuration**:
-    *   Cluster Name: Data Ingestion and Processing Cluster
-    *   Databricks Runtime Version: 7.3 LTS
-    *   Node Type: Standard_DS3_v2
-    *   Driver Node: Standard_DS3_v2 (1 node)
-    *   Worker Nodes: Standard_DS3_v2 (2-5 nodes)
-    *   Autoscaling: Enabled
-    *   Auto Termination: Enabled (after 30 minutes of inactivity)
-    *   Libraries Installed: 
-        *   PySpark
-        *   pandas
-        *   numpy
-*   **Source Data Details**:
-    *   Dataset Name: JDA-ABC 5 years Order Demand History
-    *   Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order
-    *   Format: CSV
-    *   Description: Historical sales order data
-    *   Dataset Name: JDA-ABC Regional, sales orgs & plant mapping data
-    *   Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref
-    *   Format: CSV
-    *   Description: Regional, sales orgs, and plant mapping data
-*   **Target Data Details**:
-    *   Output Name: 5Y_ABC_onetime_SCM_demand_history.csv
-    *   Location: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/
-    *   Format: CSV
-    *   Description: Transformed data for global demand planning
-*   **Job Flow / Pipeline Stages**:
-    *   Ingest data from source CSV files into bronze layer tables
-    *   Transform data into silver layer table by joining bronze layer tables
-    *   Create gold layer view on top of silver layer table
-    *   Export data from gold layer view to CSV file
-*   **Data Transformations / Business Logic**:
-    *   Step 1: Ingest JDA-ABC 5 years Order Demand History file into bronze layer table `b_um_xyz.ABC_onetime_history_sales_orders`
-    *   Step 2: Ingest JDA-ABC Regional, sales orgs & plant mapping data file into bronze layer table `b_um_xyz.ABC_onetime_history_sales_org_plant_xref`
-    *   Step 3: Join bronze layer tables on condition `Product = DMDUNIT` and `LOC = LOC` to create silver layer table `s_xyz.sales_orders_demand_fcst_ABC_onetime_history`
-    *   Step 4: Apply necessary transformations to populate required fields (Sales Organization, Region, Sales Office, Plant, Planning partner, Demand quantity, and Return quantity)
-    *   Step 5: Create gold layer view `g_external.v_sales_orders_demand_fcst_ABC_onetime_history` on top of silver layer table
-*   **Error Handling and Logging**:
-    *   Implement try-except blocks to catch and log exceptions during data ingestion, transformation, and export
-    *   Log errors and exceptions to a logging table or file for monitoring and debugging purposes
-    *   Send notifications to stakeholders in case of job failure or errors
+* **Technical Requirement ID**: TR-DIP-001
+
+* **In scope and out of scope part(s)**: 
+  * In scope: Data ingestion, processing, and export of ABC historical sales order data (FR-2.0)
+  * Out of scope: Any data sources other than the two specified flat files (FR-2.1)
+
+* **Objective**: Implement a data ingestion and processing pipeline using PySpark to ingest data from two flat files, process it through multiple layers (bronze, silver, and gold), and generate a CSV extract for downstream applications.
+
+* **Target Cluster Configuration**:
+  * Cluster Name: Data Ingestion and Processing Cluster
+  * Databricks Runtime Version: 7.3.x-scala2.12
+  * Node Type: Standard_DS3_v2
+  * Driver Node: Standard_DS3_v2
+  * Worker Nodes: 2-4 (autoscaling)
+  * Autoscaling: Enabled
+  * Auto Termination: Enabled (30 minutes)
+  * Libraries Installed: 
+    * PySpark
+    * Delta Lake
+
+* **Source Data Details**:
+  * Dataset Name: ABC Demand History file
+    * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order
+    * Format: Flat file
+    * Description: Historical sales order data
+  * Dataset Name: ABC Regional, Sales Orgs & Plant mapping file
+    * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref
+    * Format: Flat file
+    * Description: Mapping data for regional, sales organizations, and plants
+
+* **Target Data Details**:
+  * Output Name: 5Y_ABC_onetime_SCM_demand_history.csv
+    * Location: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/
+    * Format: CSV
+    * Description: Processed demand history data for downstream applications
+
+* **Job Flow / Pipeline Stages**:
+  * Stage 1: Ingest raw data from flat files into bronze layer
+  * Stage 2: Transform data from bronze to silver layer (join and enrich data)
+  * Stage 3: Transform data from silver to gold layer (filter and aggregate data)
+  * Stage 4: Export gold layer data to CSV file
+
+* **Data Transformations / Business Logic**:
+  * Step 1: Ingest raw data from bronze layer into silver layer
+    * Transformation Logic: Join Demand History file with Regional, Sales Orgs & Plant mapping file on `DMDUNIT = Product` and `LOC = LOC`
+  * Step 2: Apply transformation rules to populate key fields
+    * Transformation Logic: Populate Sales Organization, Region, Sales Office, Plant, and Planning Partner based on joined data and business logic
+  * Step 3: Filter data to include only historical and return data
+    * Transformation Logic: Filter data where `HISTSTREAM = 'HIST'` or `'RTNS'`
+
+* **Error Handling and Logging**:
+  * Log errors and exceptions to a designated logging location
+  * Implement retry mechanism for failed tasks
+  * Alert for critical errors and exceptions
