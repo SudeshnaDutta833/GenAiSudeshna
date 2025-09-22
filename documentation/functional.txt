@@ -1,7 +1,7 @@
-# Functional Requirement Document
+# Functional Requirement Document (FRD)
 
 ## 1. Technical Requirement ID
-RITM-OSD-SalesData
+RITM-XXXX-OSD-SALES
 
 ## 2. Related Functional Requirement(s)
 FR-SALES-001
@@ -9,228 +9,186 @@ FR-SALES-001
 ## 3. Document Signatures
 | Role | Name | Signature | Date |
 |------|------|-----------|------|
-| Functional Lead | | Signature | Date |
-| Technical Lead | | Signature | Date |
-| Business Analyst | | Signature | Date |
+| Functional Lead | TBD | Signature | Date |
+| Business Analyst | TBD | Signature | Date |
+| Technical Lead | TBD | Signature | Date |
 
 ## 4. Document Revision History
 | Revision | Author | Reason for Revision |
-|----------|--------|---------------------|
-| 1.0 | | Initial document creation |
+|----------|--------|-------------------|
+| 1.0 | Business Analyst | Initial Draft |
+
+---
 
 ## Table of Contents
-1.0 Purpose
-2.0 Scope
-3.0 Definitions / Acronyms
-4.0 Roles and Responsibilities
-5.0 References
-6.0 System Design & Configuration
-7.0 Data Product Design
-8.0 Considerations
-9.0 Appendices / Attachments
 
-## 1.0 Purpose
-To develop a data transformation process that maps data from source tables to the silver table "s_onc.sales_ord_his" following specific business rules and data mapping requirements.
+### 1.0 Purpose
+To develop a data transformation pipeline for processing sales order history data from bronze layer tables (b_onc.Sales and b_onc.sales_org) to create a standardized silver layer table (s_onc.sales_ord_his) with proper mapping and business rules implementation.
 
-## 2.0 Scope
-### 2.1: In scope for this document is:
-Development of ETL processes to transform data from b_onc.Sales and b_onc.sales_org tables into the s_onc.sales_ord_his silver table according to specified mapping rules.
+### 2.0 Scope
 
-### 2.2: Out of scope for this document is:
-- Any modifications to source data structures
-- Creation of downstream gold layer tables
-- Integration with external systems beyond specified source tables
+**2.1 In scope for this document is:**
+- Data transformation from bronze tables b_onc.Sales and b_onc.sales_org to silver table s_onc.sales_ord_his
+- Implementation of mapping rules and business logic as specified
+- Data type conversions and field validations
+- Application of filter conditions and default values
 
-## 3.0 Definitions / Acronyms
+**2.2 Out of scope for this document is:**
+- Data ingestion from external source systems
+- Gold layer transformations
+- Reporting and analytics functionalities
+
+### 3.0 Definitions / Acronyms
 | Term / Abbreviation | Definition |
-|---------------------|------------|
+|-------------------|------------|
 | APO | Advanced Planning and Optimization |
-| APM | Advanced Planning Model |
+| APM | Advanced Planning Module |
 | SCM | Supply Chain Management |
-| MTS | Make-to-Stock |
-| LOC | Location |
-| DMDUNIT | Demand Unit |
-| DMDGROUP | Demand Group |
-| BD | Business Division |
+| MTS | Make to Stock |
+| DDL | Data Definition Language |
+| ADLS | Azure Data Lake Storage |
 
-## 4.0 Roles and Responsibilities
-- Data Engineer: Responsible for implementing the ETL processes
-- Business Analyst: Responsible for requirements validation
-- QA Engineer: Responsible for testing the data transformation
-- Project Manager: Overall coordination and delivery
+### 4.0 Roles and Responsibilities
+- **Data Engineer**: Implement data transformation logic
+- **Business Analyst**: Validate business rules and mapping
+- **Data Architect**: Review technical design and data flow
 
-## 5.0 References
-Implementation of a data transformation process to map sales history data from source systems to the standardized silver layer format.
+### 5.0 References
+Implement a PySpark job to transform sales order data from bronze layer to silver layer with standardized schema and business rule applications.
 
-### 5.1 Data Product Identification
+**5.1 Data Product Identification**
 Sales Order History Data Product
 
-### 5.2 Data Product Specification
-Silver layer table containing transformed sales order history data with standardized fields and business rules applied.
+**5.2 Data Product Specification**
+Standardized sales order history data with APO planning integration
 
-## 6.0 System Design & Configuration
-The system will extract data from b_onc.Sales and b_onc.sales_org tables, apply transformation rules as specified in the mapping, and load the results into the s_onc.sales_ord_his table.
+### 6.0 System Design & Configuration
+Refer to the source mapping table provided for field-level transformations between bronze and silver layers.
 
-## 7.0 Data Product Design
+### 7.0 Data Product Design
 
-### 7.1 Data Sources
+#### 7.1 Data Sources
 | Source | Description | Columns | ADLS Path |
 |--------|-------------|---------|-----------|
-| b_onc.Sales | Sales transaction data | DMDUNIT, DMDGROUP, LOC, STARDATE, DUR, TYPE, EVENT, QTY, HISTSTREAM | /bronze/onc/sales |
-| b_onc.sales_org | Sales organization data | PRODUCT, LOC, Region, Country, Channel, Sales Org, Plant/DC | /bronze/onc/sales_org |
+| b_onc.Sales | Bronze sales data | PRODUCT, DMDUNIT, DMDGROUP, LOC, STARDATE, DUR, TYPE, EVENT, QTY, HISTSTREAM | /bronze/onc/sales/ |
+| b_onc.sales_org | Bronze sales organization data | LOC, Region, Country, Channel, Sales Org, Plant/DC | /bronze/onc/sales_org/ |
 
-#### 7.1.1 Input File layout:
+##### 7.1.1 Input File Layout:
 | FieldName | Description | Mandatory | Comments |
 |-----------|-------------|-----------|----------|
-| DMDUNIT | Demand Unit | Yes | Maps to APM Model Number |
-| DMDGROUP | Demand Group | Yes | Used for Planning Partner determination |
-| LOC | Location | Yes | Used for multiple field mappings |
-| STARDATE | Start Date | Yes | Used for Cal Month calculation |
-| QTY | Quantity | Yes | Used for demand quantity calculations |
-| HISTSTREAM | History Stream | Yes | Determines type of quantity (sales or returns) |
-| PRODUCT | Product ID | No | From sales_org table |
-| Region | Region | No | From sales_org table |
-| Country | Country | No | From sales_org table |
-| Channel | Channel | No | From sales_org table |
-| Sales Org | Sales Organization | No | From sales_org table |
-| Plant/DC | Plant/Distribution Center | No | From sales_org table |
+| PRODUCT | Product identifier | Y | From Sales table |
+| DMDUNIT | Demand unit | Y | From Sales table |
+| DMDGROUP | Demand group | Y | From Sales table |
+| LOC | Location | Y | From both tables |
+| STARTDATE | Start date | Y | From Sales table |
+| QTY | Quantity | Y | From Sales table |
+| HISTSTREAM | History stream | Y | From Sales table |
 
-### 7.2 Data Ingestion:
+#### 7.2 Data Ingestion:
 | Step | Details |
 |------|---------|
-| 1 | Extract data from b_onc.Sales table |
-| 2 | Extract data from b_onc.sales_org table |
-| 3 | Load data into Databricks processing environment |
+| 1 | Read bronze tables b_onc.Sales and b_onc.sales_org |
+| 2 | Validate data quality and completeness |
+| 3 | Apply initial data cleansing |
 
-### 7.3 Data Transformation:
+#### 7.3 Data Transformation:
 
-```
-[Source Tables] -> [Join & Apply Mapping Rules] -> [Apply Default Values] -> [Silver Table]
-```
+**Execution Steps:**
+• **Step 1**: Join b_onc.Sales and b_onc.sales_org tables on LOC field
+• **Step 2**: Apply filter conditions based on product availability from sales_org
+• **Step 3**: Implement field-level transformations:
+  - APO Planning Version: Hard code as '001'
+  - APM Model Number: Map DMDUNIT against APO Product in SCM
+  - Product Planner Code: Map DMDUNIT against Product Planner code in SCM
+  - Country: Trim LOC to 2 characters
+  - Sales Office: Use LOC + map to Region Code via X-Ref
+  - Sales Organization: Map LOC to BD Salesorg via X-Ref
+  - PLANT: Map LOC to BD Location via X-Ref
+• **Step 4**: Apply Planning Partner logic based on DMDGROUP:
+  - If DMDGROUP = 'SALES', then Planning Partner = 'R'
+  - If DMDGROUP = 'SAMPLES', then Planning Partner = 'N'
+  - If DMDGROUP = 'CONSIGN', then Planning Partner = 'C'
+• **Step 5**: Set default values for standard fields:
+  - Distribution Channel: '10'
+  - Customer Group: '500'
+  - Ship-To Party: 'NONE'
+  - Sold-to Party: 'NONE'
+  - Base Unit of Measure: 'EA'
+  - Source System: 'JDAAPM'
+• **Step 6**: Process quantity fields based on HISTSTREAM values
+• **Step 7**: Generate Snapshot ID using system date/time
+• **Step 8**: Map Cal Month from STARTDATE field
 
-#### Execution Steps:
-1. Join b_onc.Sales and b_onc.sales_org tables on LOC field
-2. Apply mapping rules for each target field according to specifications
-3. Apply conditional logic for Planning Partner field based on DMDGROUP values
-4. Set default values for fields without source mappings
-5. Calculate Cal Month from STARTDATE
-6. Separate quantities based on HISTSTREAM value
-7. Load transformed data into s_onc.sales_ord_his
-
-#### Tables:
+**Table Details:**
 | Schema | TableName | Description |
 |--------|-----------|-------------|
-| b_onc | Sales | Bronze layer sales transaction data |
+| b_onc | Sales | Bronze layer sales data |
 | b_onc | sales_org | Bronze layer sales organization data |
-| s_onc | sales_ord_his | Silver layer sales order history data |
+| s_onc | sales_ord_his | Silver layer standardized sales order history |
 
-### 7.4 Data Export
+#### 7.4 Data Export:
 | Step | Details |
 |------|---------|
-| 1 | Write transformed data to s_onc.sales_ord_his table |
-| 2 | Validate data integrity and completeness |
+| 1 | Write transformed data to silver layer table s_onc.sales_ord_his |
+| 2 | Apply data quality validations |
+| 3 | Generate processing logs and metrics |
 
-## 7.0 Data Product Design (continued)
+#### 7.2 AMO KT:
+Knowledge transfer sessions to be conducted for Advanced Manufacturing Operations team on data transformation logic and business rules.
 
-### 7.2 AMO KT:
-Knowledge transfer sessions will be conducted to ensure the operations team understands the data transformation process and can support it.
+#### 7.3 Data:
+Data flows from bronze layer tables through transformation engine to silver layer with standardized schema, maintaining data lineage and applying business rules for downstream consumption.
 
-### 7.3 Data:
-Data flows from source bronze tables (b_onc.Sales and b_onc.sales_org) through transformation logic to create the silver table s_onc.sales_ord_his. The transformation applies business rules, default values, and conditional logic as specified in the mapping requirements.
-
-### 7.4 Data Processing
+#### 7.4 Data Processing
 Databricks provides a unified platform for scalable and efficient data processing, powered by Apache Spark as its core engine. Here, Databricks notebooks are orchestrated using Databricks Workflows.
 
-### 7.5 Data Optimization
+#### 7.5 Data Optimization
 Regular optimization scripts are scheduled in Databricks to maintain table performance and ensure efficient query execution. These scripts typically include operations such as vacuuming, Z-ordering. The code for these tasks is generated following Databricks best practices, ensuring consistency, scalability, and reliability across data pipelines.
 
-### 7.6 Data Security
+#### 7.6 Data Security
 Data access in Databricks is restricted to authorized user groups, such as Data Engineers and Data Analysts, based on their roles and responsibilities.
 
-### 7.7 Data Archiving
+#### 7.7 Data Archiving
 Data is archived for 15 days on Azure Data Lake Storage (ADLS).
 
-### 7.8 MLOps
+#### 7.8 MLOps
 N/A
 
-### 7.9 Regulatory & Compliance
+#### 7.9 Regulatory & Compliance
 N/A
 
-### 7.10 Backup & Recovery
+#### 7.10 Backup & Recovery
 N/A
 
-### 7.11 Release Management
-| CHM# | Summary |
-|------|---------|
-| | |
+#### 7.11 Release Management
+CHM# Summary
 
-## 8.0 Considerations
+### 8.0 Considerations
 
-### 8.1 Assumptions
-N/A
+#### 8.1 Assumptions
+• Source data quality is maintained at acceptable levels
+• Cross-reference tables for mapping are available and up-to-date
+• System date/time is accurate for Snapshot ID generation
 
-### 8.2 Exclusions
-Creation / execution of any test script.
+#### 8.2 Exclusions
+• Creation/execution of any test script
+• Performance tuning beyond standard optimization
+• Custom error handling beyond standard framework
 
-### 8.3 Constraints
-N/A
+#### 8.3 Constraints
+• Transformation logic must adhere to existing SCM mapping standards
+• Processing must complete within defined batch windows
 
-### 8.4 Dependencies
-N/A
+#### 8.4 Dependencies
+• Availability of cross-reference tables for mapping
+• Bronze layer data refresh completion
+• SCM system availability for product mapping
 
-### 8.5 Decisions
-N/A
+#### 8.5 Decisions
+• Default values will be applied as specified in mapping table
+• Filter conditions will be consistently applied across all records
 
-## 9.0 Appendices / Attachments
-
-### Functional Requirements
-
-* **FR-001:** The system shall extract data from source tables b_onc.Sales and b_onc.sales_org.
-
-* **FR-002:** The system shall populate APO Planning Version with a hard-coded value of "001".
-
-* **FR-003:** The system shall map DMDUNIT from b_onc.Sales to APM Model Number, using the APO Product mapping in SCM.
-
-* **FR-004:** The system shall map DMDUNIT from b_onc.Sales to Product Planner Code, using the Product Planner code mapping in SCM.
-
-* **FR-005:** The system shall derive Country from LOC in b_onc.Sales by trimming to 2 characters.
-
-* **FR-006:** The system shall determine Sales Office by combining LOC with Region Code via cross-reference mapping.
-
-* **FR-007:** The system shall map LOC to BD Salesorg via cross-reference to populate Sales Organization.
-
-* **FR-008:** The system shall map LOC to BD Location via cross-reference to populate PLANT.
-
-* **FR-009:** The system shall implement the following Planning Partner mapping logic:
-  * If DMDGROUP = SALES, then Planning partner = R
-  * If DMDGROUP = SAMPLES, then Planning partner = N
-  * If DMDGROUP = CONSIGN, then Planning partner = C
-
-* **FR-010:** The system shall set default values for the following fields:
-  * Distribution Channel: "10"
-  * Customer Group: "500"
-  * Ship-To Party: "NONE"
-  * Sold-to Party: "NONE"
-  * WW Business: "None"
-  * Strategy Center: "None"
-  * Product Line: "None"
-  * Planning Set: "None"
-  * Product Subset: "None"
-  * Item Category: "None"
-  * Sales Document Type: "None"
-  * Base Unit of Measure: "EA"
-  * Source System: "JDAAPM"
-
-* **FR-011:** The system shall generate Snapshot ID using the system date/time.
-
-* **FR-012:** The system shall map STARTDATE to Cal Month format.
-
-* **FR-013:** The system shall populate Demand Quantity - MTS with QTY from b_onc.Sales where HISTSTREAM = "Actual Sales Qty".
-
-* **FR-014:** The system shall populate Total Demand with the same value as Demand Quantity.
-
-* **FR-015:** The system shall populate Returns Qty - MTS with QTY from b_onc.Sales where HISTSTREAM = "Return Qty".
-
-* **FR-016:** The system shall implement conditional logic for field mappings based on whether product from sales_org is null/blank or not.
-
-* **FR-017:** The system shall write the transformed data to the silver table s_onc.sales_ord_his.
+### 9.0 Appendices / Attachments
+• Source mapping table for silver table "s_onc.sales_ord_his"
+• Field mapping specifications with data types and transformation rules
+• Business logic documentation for Planning Partner assignments

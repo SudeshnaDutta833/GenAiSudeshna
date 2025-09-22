@@ -1,120 +1,131 @@
 # Technical Requirement Document (TRD)
 
 ## 1. Technical Requirement ID
-* TR-SALES-001
+TR-SALES-001
 
 ## 2. In scope and out of scope part(s)
-* **In Scope**: FR-001 through FR-017 - Development of ETL processes to transform data from b_onc.Sales and b_onc.sales_org tables into the s_onc.sales_ord_his silver table
-* **Out of Scope**: 
-  * Any modifications to source data structures
-  * Creation of downstream gold layer tables
-  * Integration with external systems beyond specified source tables
+
+**In Scope:**
+• Implementation of PySpark data transformation pipeline for sales order history processing
+• Bronze to silver layer data transformation for b_onc.Sales and b_onc.sales_org tables
+• Field mapping and business rule implementation as per specifications
+• Data type conversions and validation logic
+• Filter conditions and default value applications
+• Cross-reference table lookups for mapping transformations
+
+**Out of Scope:**
+• Data ingestion processes from external source systems
+• Gold layer transformation implementations
+• Reporting and analytics dashboard development
+• Performance tuning beyond standard optimization practices
+• Custom error handling frameworks beyond standard implementations
+
+**Reference FR ID:** FR-SALES-001
 
 ## 3. Objective
-* Implement a PySpark job to transform sales data from bronze tables (b_onc.Sales and b_onc.sales_org) to silver table (s_onc.sales_ord_his) applying specified business rules and mapping logic.
+Implement a PySpark job to transform sales order history data from bronze layer tables to standardized silver layer with proper field mapping, business rule applications, and cross-reference lookups.
 
 ## 4. Target Cluster Configuration
-* **Cluster Name**: sales-data-transformation-cluster
-* **Databricks Runtime Version**: 10.4 LTS (includes Apache Spark 3.2.1, Scala 2.12)
-* **Node Type**: Standard_DS4_v2
-* **Driver Node**: Standard_DS4_v2
-* **Worker Nodes**: Standard_DS4_v2
-* **Autoscaling**: Enabled (2-8 workers)
-* **Auto Termination**: 30 minutes
-* **Libraries Installed**: PySpark, Delta Lake, PyArrow
+
+• **Cluster Name:** sales-transformation-cluster
+• **Databricks Runtime Version:** 13.3 LTS (includes Apache Spark 3.4.1, Scala 2.12)
+• **Node Type:** Standard_DS3_v2 (14 GB Memory, 4 Cores)
+• **Driver Node:** Standard_DS3_v2 (14 GB Memory, 4 Cores)
+• **Worker Nodes:** 2-8 nodes (autoscaling enabled)
+• **Autoscaling:** Enabled (Min: 2, Max: 8 workers)
+• **Auto Termination:** 30 minutes of inactivity
+• **Libraries Installed:** Delta Lake, PyYAML, Pandas
 
 ## 5. Source Data Details
-* **Dataset 1**
-  * Name: Sales Data
-  * Location: b_onc.Sales
-  * Format: Delta Table
-  * Description: Contains sales transaction data including DMDUNIT, DMDGROUP, LOC, STARDATE, QTY, HISTSTREAM
 
-* **Dataset 2**
-  * Name: Sales Organization Data
-  * Location: b_onc.sales_org
-  * Format: Delta Table
-  * Description: Contains sales organization data including PRODUCT, LOC, Region, Country, Channel, Sales Org, Plant/DC
+• **Dataset Name:** b_onc.Sales
+  - **Location:** /bronze/onc/sales/
+  - **Format:** Delta Table
+  - **Description:** Bronze layer sales data containing product, location, quantity and history stream information
+
+• **Dataset Name:** b_onc.sales_org
+  - **Location:** /bronze/onc/sales_org/
+  - **Format:** Delta Table
+  - **Description:** Bronze layer sales organization data with location, region, country and channel mappings
 
 ## 6. Target Data Details
-* **Output Name**: Sales Order History
-* **Location**: s_onc.sales_ord_his
-* **Format**: Delta Table
-* **Description**: Silver layer table containing transformed sales order history data with standardized fields and business rules applied
+
+• **Output Name:** s_onc.sales_ord_his
+  - **Location:** /silver/onc/sales_ord_his/
+  - **Format:** Delta Table
+  - **Description:** Silver layer standardized sales order history with APO planning integration and business rule applications
 
 ## 7. Job Flow / Pipeline Stages
-* **Stage 1**: Extract data from source tables (b_onc.Sales and b_onc.sales_org)
-* **Stage 2**: Join tables on LOC field
-* **Stage 3**: Apply mapping rules and transformations
-* **Stage 4**: Apply default values and conditional logic
-* **Stage 5**: Calculate derived fields
-* **Stage 6**: Write transformed data to target table
-* **Stage 7**: Perform data quality validations
+
+• **Stage 1:** Data Source Validation and Reading
+  - Read bronze tables b_onc.Sales and b_onc.sales_org
+  - Validate table availability and data completeness
+  - Apply initial data quality checks
+
+• **Stage 2:** Data Joining and Filtering
+  - Perform inner join between Sales and sales_org on LOC field
+  - Apply filter conditions based on product availability
+  - Remove records with null or invalid key fields
+
+• **Stage 3:** Field Transformation and Mapping
+  - Execute cross-reference lookups for location and product mappings
+  - Apply business logic for Planning Partner assignments
+  - Implement field-level transformations per mapping specifications
+
+• **Stage 4:** Data Validation and Quality Checks
+  - Validate transformed data against business rules
+  - Check mandatory field completeness
+  - Apply data type validations
+
+• **Stage 5:** Silver Layer Data Write
+  - Write transformed data to s_onc.sales_ord_his table
+  - Apply Delta Lake optimizations
+  - Generate processing metrics and logs
 
 ## 8. Data Transformations / Business Logic
-* **Step 1**: Join source tables
-  * Description: Join b_onc.Sales and b_onc.sales_org tables on LOC field
-  * Logic: Left join to preserve all sales records
 
-* **Step 2**: Apply field mappings
-  * Description: Map source fields to target fields
-  * Logic:
-    * Set APO Planning Version = "001" (hard-coded)
-    * Map DMDUNIT to APM Model Number using APO Product mapping
-    * Map DMDUNIT to Product Planner Code using SCM mapping
-    * Derive Country by trimming LOC to 2 characters
-    * Determine Sales Office by combining LOC with Region Code
-    * Map LOC to BD Salesorg for Sales Organization
-    * Map LOC to BD Location for PLANT
+• **Step 1:** APO Planning Version Assignment
+  - **Description:** Set standard planning version identifier
+  - **Transformation Logic:** Hard code APO_Planning_Version = '001' for all records
 
-* **Step 3**: Apply Planning Partner logic
-  * Description: Set Planning Partner based on DMDGROUP value
-  * Logic:
-    * If DMDGROUP = "SALES", set Planning Partner = "R"
-    * If DMDGROUP = "SAMPLES", set Planning Partner = "N"
-    * If DMDGROUP = "CONSIGN", set Planning Partner = "C"
+• **Step 2:** Product Mapping Transformations
+  - **Description:** Map demand unit to APO product and planner codes
+  - **Transformation Logic:** Lookup DMDUNIT against APO Product in SCM system, map to Product Planner code via cross-reference
 
-* **Step 4**: Set default values
-  * Description: Apply default values for specified fields
-  * Logic:
-    * Distribution Channel = "10"
-    * Customer Group = "500"
-    * Ship-To Party = "NONE"
-    * Sold-to Party = "NONE"
-    * WW Business = "None"
-    * Strategy Center = "None"
-    * Product Line = "None"
-    * Planning Set = "None"
-    * Product Subset = "None"
-    * Item Category = "None"
-    * Sales Document Type = "None"
-    * Base Unit of Measure = "EA"
-    * Source System = "JDAAPM"
+• **Step 3:** Location-Based Field Derivations
+  - **Description:** Derive country, sales office, organization and plant from location
+  - **Transformation Logic:** Country = TRIM(LOC, 2 chars), Sales_Office = LOC + Region_Code_XRef, Sales_Org = LOC_to_BD_Salesorg_XRef, Plant = LOC_to_BD_Location_XRef
 
-* **Step 5**: Generate derived fields
-  * Description: Calculate additional required fields
-  * Logic:
-    * Generate Snapshot ID using current system date/time
-    * Convert STARTDATE to Cal Month format
-    * Set Demand Quantity - MTS = QTY where HISTSTREAM = "Actual Sales Qty"
-    * Set Total Demand = Demand Quantity
-    * Set Returns Qty - MTS = QTY where HISTSTREAM = "Return Qty"
+• **Step 4:** Planning Partner Business Logic
+  - **Description:** Assign planning partner based on demand group
+  - **Transformation Logic:** IF DMDGROUP = 'SALES' THEN 'R', IF DMDGROUP = 'SAMPLES' THEN 'N', IF DMDGROUP = 'CONSIGN' THEN 'C'
 
-* **Step 6**: Apply conditional logic for product-dependent mappings
-  * Description: Handle cases where product from sales_org is null/blank
-  * Logic: Implement null checking and fallback values for product-dependent fields
+• **Step 5:** Default Value Applications
+  - **Description:** Set standard default values for required fields
+  - **Transformation Logic:** Distribution_Channel = '10', Customer_Group = '500', Ship_To_Party = 'NONE', Sold_To_Party = 'NONE', Base_Unit_Measure = 'EA', Source_System = 'JDAAPM'
+
+• **Step 6:** Quantity Processing
+  - **Description:** Process quantity fields based on history stream values
+  - **Transformation Logic:** Apply quantity transformations according to HISTSTREAM classification rules
+
+• **Step 7:** Snapshot and Calendar Processing
+  - **Description:** Generate snapshot identifier and calendar month mapping
+  - **Transformation Logic:** Snapshot_ID = current_timestamp(), Cal_Month = extract_month(STARTDATE)
 
 ## 9. Error Handling and Logging
-* **Error Handling**:
-  * Implement schema validation for source data
-  * Capture and log records that fail transformation rules
-  * Create error table to store rejected records with reason for rejection
-  * Implement retry logic for transient failures
-  * Set up alerting for critical failures
 
-* **Logging**:
-  * Log job start and end times
-  * Track record counts at each transformation stage
-  * Log performance metrics for optimization
-  * Implement detailed logging for debugging purposes
-  * Create summary report of processed records, successful transformations, and errors
+• **Data Quality Validation Errors:**
+  - Log records with missing mandatory fields to error table
+  - Generate data quality metrics for monitoring dashboard
+  - Implement retry logic for transient cross-reference lookup failures
+
+• **Transformation Errors:**
+  - Capture and log transformation exceptions with record identifiers
+  - Implement fallback values for failed cross-reference lookups
+  - Generate detailed error reports for business validation
+
+• **Processing Logs:**
+  - Record processing start/end times and record counts
+  - Log memory and performance metrics for optimization
+  - Generate success/failure notifications for downstream systems
+  - Maintain audit trail for data lineage tracking
