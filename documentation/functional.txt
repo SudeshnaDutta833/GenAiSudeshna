@@ -17,7 +17,7 @@ None
 
 | Revision | Author | Reason for Revision |
 | --- | --- | --- |
-| 1.0 | [Author] | Initial Document |
+| 1.0 | [Name] | Initial Document |
 
 **Table of Contents**
 
@@ -32,137 +32,144 @@ None
 9.0 Appendices / Attachments
 
 **1.0 Purpose**
-To integrate sales order data from source systems into the silver table "s_onc.sales_ord_his" using the provided mapping rules.
+To integrate sales order data from multiple sources into a unified data product, enabling better decision-making and data-driven insights.
 
 **2.0 Scope**
 2.1: In scope for this document is:
-* Integration of sales order data from source systems into the silver table "s_onc.sales_ord_his"
-* Application of mapping rules to transform data
+* Integration of sales order data from `b_onc.Sales` and `b_onc.sales_org` tables
+* Transformation and loading of data into `s_onc.sales_ord_his` table
 2.2: Out of scope for this document is:
 * Data quality checks and validation
-* Data loading into downstream systems
+* Data visualization and reporting
 
 **3.0 Definitions / Acronyms**
 
 | Term / Abbreviation | Definition |
 | --- | --- |
 | ADLS | Azure Data Lake Storage |
-| SCM | Supply Chain Management |
+| DDL | Data Definition Language |
 
 **4.0 Roles and Responsibilities**
 
-* Data Engineers: responsible for developing and maintaining the data integration pipeline
-* Data Analysts: responsible for validating and analyzing the integrated data
+* Data Engineers: responsible for designing and implementing the data integration pipeline
+* Data Analysts: responsible for consuming the integrated data product
 
 **5.0 References**
-Implement a PySpark job to integrate sales order data from source systems into the silver table "s_onc.sales_ord_his".
+Implement a PySpark job to integrate sales order data from multiple sources and generate output in Parquet format.
 
 **5.1 Data Product Identification**
-Sales Order Data Integration
+Sales Order Data Product
 
 **5.2 Data Product Specification**
-Integration of sales order data from source systems into the silver table "s_onc.sales_ord_his" using the provided mapping rules.
+The data product will contain integrated sales order data from multiple sources, transformed and loaded into a unified table.
 
 **6.0 System Design & Configuration**
 Refer to the mapping provided in the input file.
 
 **7.0 Data Product Design**
 
-* **7.1 Data Sources**
-	+ Source 1: b_onc.Sales
-	+ Source 2: b_onc.sales_org
-	+ Columns: as per the mapping table
-	+ ADLS Path: [provide path]
-	* **7.1.1 Input File layout:**
-		- FieldName: PRODUCT, DMDUNIT, DMDGROUP, LOC, STARDATE, DUR, TYPE, EVENT, QTY, HISTSTREAM
-		- Description: Sales order data from source systems
-		- Mandatory: Yes
-		- Comments: None
-* **7.2 Data Ingestion:**
-	1. Read data from source systems using PySpark.
-	2. Store data in bronze tables.
-* **7.3 Data Transformation:**
-	1. Apply mapping rules to transform data.
-	2. Use PySpark to perform data transformation.
-	3. Store transformed data in silver table "s_onc.sales_ord_his".
-	* Flow Diagram:
-		- [Provide flow diagram]
-	* Execution Steps:
-		1. Read data from bronze tables.
-		2. Apply mapping rules to transform data.
-		3. Store transformed data in silver table "s_onc.sales_ord_his".
-	* Bronze, Silver, and Gold Table Details:
-		- Schema: [provide schema]
-		- TableName: s_onc.sales_ord_his
-		- Description: Sales order data integrated from source systems
-* **7.4 Data Export:**
-	1. Store transformed data in silver table "s_onc.sales_ord_his".
-* **7.2 AMO KT:**
-Not applicable
-* **7.3 Data:**
-Data is stored from source to target using PySpark.
-* **7.4 Data Processing:**
+### 7.1 Data Sources
+
+| Source | Description | Columns | ADLS Path |
+| --- | --- | --- | --- |
+| `b_onc.Sales` | Sales data | `DMDUNIT`, `LOC`, `DMDGROUP`, `STARDATE`, `DUR`, `TYPE`, `EVENT`, `QTY`, `HISTSTREAM` | `/mnt/adls/path/to/b_onc/Sales` |
+| `b_onc.sales_org` | Sales organization data | `Sales Org` | `/mnt/adls/path/to/b_onc/sales_org` |
+
+#### 7.1.1 Input File layout:
+
+| FieldName | Description | Mandatory | Comments |
+| --- | --- | --- | --- |
+| `DMDUNIT` | Product | Y |  |
+| `LOC` | Location | Y |  |
+| `DMDGROUP` | Demand Group | Y |  |
+| `STARDATE` | Start Date | Y |  |
+| `DUR` | Duration | Y |  |
+| `TYPE` | Type | Y |  |
+| `EVENT` | Event | Y |  |
+| `QTY` | Quantity | Y |  |
+| `HISTSTREAM` | History Stream | Y |  |
+
+### 7.2 Data Ingestion:
+
+1. Read data from `b_onc.Sales` and `b_onc.sales_org` tables using PySpark.
+2. Load data into DataFrames.
+
+### 7.3 Data Transformation:
+
+1. Join `b_onc.Sales` and `b_onc.sales_org` DataFrames on `LOC` column.
+2. Apply transformations based on the mapping rules provided in the input file.
+3. Create a new DataFrame with the transformed data.
+
+Flow Diagram:
+
+```
+          +---------------+
+          |  b_onc.Sales  |
+          +---------------+
+                  |
+                  |
+                  v
++---------------+      +---------------+
+|  Join on LOC  |      | b_onc.sales_org |
++---------------+      +---------------+
+                  |
+                  |
+                  v
++---------------+
+|  Apply Mapping  |
+|  Rules          |
++---------------+
+                  |
+                  |
+                  v
++---------------+
+|  Transformed    |
+|  DataFrame      |
++---------------+
+```
+
+Schema TableName Description:
+
+| Schema | TableName | Description |
+| --- | --- | --- |
+| `s_onc` | `sales_ord_his` | Integrated sales order data |
+
+### 7.4 Data Export:
+
+1. Write the transformed DataFrame to `s_onc.sales_ord_his` table in Parquet format.
+
+**7.4 Data Processing**
 Databricks provides a unified platform for scalable and efficient data processing, powered by Apache Spark as its core engine. Here, Databricks notebooks are orchestrated using Databricks Workflows.
-* **7.5 Data Optimization:**
-Regular optimization scripts are scheduled in Databricks to maintain table performance and ensure efficient query execution. These scripts typically include operations such as vacuuming, Z-ordering.
-* **7.6 Data Security:**
+
+**7.5 Data Optimization**
+Regular optimization scripts are scheduled in Databricks to maintain table performance and ensure efficient query execution.
+
+**7.6 Data Security**
 Data access in Databricks is restricted to authorized user groups, such as Data Engineers and Data Analysts, based on their roles and responsibilities.
-* **7.7 Data Archiving:**
+
+**7.7 Data Archiving**
 Data is archived for 15 days on Azure Data Lake Storage (ADLS).
-* **7.8 MLOps:**
-Not applicable
-* **7.9 Regulatory & Compliance:**
-Not applicable
-* **7.10 Backup & Recovery:**
-Not applicable
-* **7.11 Release Management:**
-CHM# Summary
 
 **8.0 Considerations**
 
-* **8.1 Assumptions:**
+### 8.1 Assumptions
 None
-* **8.2 Exclusions:**
+
+### 8.2 Exclusions
 Creation / execution of any test script.
-* **8.3 Constraints:**
+
+### 8.3 Constraints
 None
-* **8.4 Dependencies:**
+
+### 8.4 Dependencies
 None
-* **8.5 Decisions:**
+
+### 8.5 Decisions
 None
-* CHM# Summary
 
 **9.0 Appendices / Attachments**
 
-* Mapping table for silver table "s_onc.sales_ord_his"
-* Other relevant documents from input PDF. 
+* Mapping document from input file
+* Data product specification document
 
-Here are the requirements in bullet points for section 7.3 Data Transformation:
-
-* Read data from bronze tables.
-* Apply mapping rules to transform data, including:
-	+ APO Planning Version: populate as APO version = 001 if product from sales_org is null or blank, otherwise use LOC column from both sources.
-	+ APM Model Number: map against APO Product in SCM if product from sales_org is null or blank, otherwise use LOC column from both sources.
-	+ Product Planner Code: map against Product Planner code in SCM if product from sales_org is null or blank, otherwise use LOC column from both sources.
-	+ Country: trim to 2 characters if product from sales_org is null or blank, otherwise use LOC column from both sources.
-	+ Sales Office: use LOC + map to Region Code via X-Ref if product from sales_org is null or blank, otherwise use LOC column from both sources.
-	+ Planning Partner: based on DMDGROUP field in b_onc.Sales file, with specific rules for SALES, SAMPLES, and CONSIGN.
-	+ Distribution Channel: default to 10.
-	+ Customer Group: default to 500.
-	+ Ship-To Party: default to NONE.
-	+ Sold-to Party: default to NONE.
-	+ WW Business: default to None.
-	+ Strategy Center: default to None.
-	+ Product Line: default to None.
-	+ Planning Set: default to None.
-	+ Product Subset: default to None.
-	+ Item Category: default to None.
-	+ Sales Document Type: default to None.
-	+ Snapshot ID: use system date/time.
-	+ Cal Month: map from STARTDATE.
-	+ Base Unit of Measure: default to EA.
-	+ Source System: default to 'JDAAPM'.
-	+ Demand Quantity - MTS: HISTSTREAM = Actual Sales Qty.
-	+ Total Demand: same as Demand Quantity.
-	+ Returns Qty - MTS: HISTSTREAM = Return Qty.
-* Store transformed data in silver table "s_onc.sales_ord_his".
+I hope this meets your requirements! Let me know if you need any further assistance.

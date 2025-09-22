@@ -1,78 +1,67 @@
-%sql
--- SQL transformation from bronze to silver layer
-INSERT OVERWRITE TABLE s_onc.sales_ord_his
-SELECT
-  -- APO Planning Version
-  '001' AS APOPlanningVersion,
-  
-  -- APM Model Number - Mapped against APO Product in SCM
-  s.DMDUNIT AS APMModelNumber,
-  
-  -- Product Planner Code - Mapped against Product Planner code in SCM
-  s.DMDUNIT AS ProductPlannerCode,
-  
-  -- Country - trim to 2 characters
-  SUBSTRING(s.LOC, 1, 2) AS Country,
-  
-  -- Sales Office - Use LOC + map to Region Code via X-Ref
-  CASE
-    WHEN so.PRODUCT IS NULL OR TRIM(so.PRODUCT) = '' THEN CONCAT(s.LOC, '_REG')
-    ELSE CONCAT(s.LOC, '_REG')
-  END AS SalesOffice,
-  
-  -- Sales Organization - Map LOC to BD Salesorg via X-Ref
-  CASE
-    WHEN so.PRODUCT IS NULL OR TRIM(so.PRODUCT) = '' THEN CONCAT(s.LOC, '_ORG')
-    ELSE so.SalesOrg
-  END AS SalesOrganization,
-  
-  -- PLANT - Map LOC to BD Location via X-Ref
-  CASE
-    WHEN so.PRODUCT IS NULL OR TRIM(so.PRODUCT) = '' THEN CONCAT(s.LOC, '_PLT')
-    ELSE so.PlantDC
-  END AS PLANT,
-  
-  -- Planning Partner based on DMDGROUP
-  CASE
-    WHEN s.DMDGROUP = 'SALES' THEN 'R'
-    WHEN s.DMDGROUP = 'SAMPLES' THEN 'N'
-    WHEN s.DMDGROUP = 'CONSIGN' THEN 'C'
-    ELSE s.DMDGROUP
-  END AS PlanningPartner,
-  
-  -- Default values for standardized fields
-  '10' AS DistributionChannel,
-  '500' AS CustomerGroup,
-  'NONE' AS ShipToParty,
-  'NONE' AS SoldToParty,
-  'None' AS WWBusiness,
-  'None' AS StrategyCenter,
-  'None' AS ProductLine,
-  'None' AS PlanningSet,
-  'None' AS ProductSubset,
-  'None' AS ItemCategory,
-  'None' AS SalesDocumentType,
-  
-  -- Snapshot ID - Use system date/time
-  DATE_FORMAT(CURRENT_TIMESTAMP(), 'yyyyMMddHH') AS SnapshotID,
-  
-  -- Cal Month - Map from STARTDATE
-  CAST(DATE_FORMAT(TO_DATE(s.STARDATE, 'yyyy-MM-dd'), 'yyyyMM') AS DECIMAL(6,0)) AS CalMonth,
-  
-  -- Base Unit of Measure
-  'EA' AS BaseUnitOfMeasure,
-  
-  -- Source System
-  'JDAAPM' AS SourceSystem,
-  
-  -- Demand Quantity - MTS (HISTSTREAM = Actual Sales Qty)
-  CASE WHEN s.HISTSTREAM = 'Actual Sales Qty' THEN s.QTY ELSE 0 END AS DemandQuantityMTS,
-  
-  -- Total Demand - Same as Demand Quantity
-  CASE WHEN s.HISTSTREAM = 'Actual Sales Qty' THEN s.QTY ELSE 0 END AS TotalDemand,
-  
-  -- Returns Qty - MTS (HISTSTREAM = Return Qty)
-  CASE WHEN s.HISTSTREAM = 'Return Qty' THEN s.QTY ELSE 0 END AS ReturnsQtyMTS
+-- Silver Layer Transformation - SQL Code
 
-FROM b_onc.Sales s
-LEFT JOIN b_onc.sales_org so ON s.LOC = so.LOC;
+%sql
+INSERT INTO s_onc.sales_ord_his
+SELECT 
+    '001' as ApoPlanningVersion,
+    s.DmdUnit as ApmModelNumber,
+    s.DmdUnit as ProductPlannerCode,
+    LEFT(TRIM(s.Loc), 2) as Country,
+    CONCAT(s.Loc, COALESCE(so.Region, '')) as SalesOffice,
+    CASE 
+        WHEN so.SalesOrg IS NULL OR TRIM(so.SalesOrg) = '' 
+        THEN s.Loc 
+        ELSE so.SalesOrg 
+    END as SalesOrganization,
+    CASE 
+        WHEN so.PlantDc IS NULL OR TRIM(so.PlantDc) = '' 
+        THEN s.Loc 
+        ELSE so.PlantDc 
+    END as Plant,
+    CASE 
+        WHEN UPPER(s.DmdGroup) = 'SALES' THEN 'R'
+        WHEN UPPER(s.DmdGroup) = 'SAMPLES' THEN 'N'
+        WHEN UPPER(s.DmdGroup) = 'CONSIGN' THEN 'C'
+        ELSE s.DmdGroup
+    END as PlanningPartner,
+    '10' as DistributionChannel,
+    '500' as CustomerGroup,
+    'NONE' as ShipToParty,
+    'NONE' as SoldToParty,
+    'None' as WwBusiness,
+    'None' as StrategyCenter,
+    'None' as ProductLine,
+    'None' as PlanningSet,
+    'None' as ProductSubset,
+    'None' as ItemCategory,
+    'None' as SalesDocumentType,
+    DATE_FORMAT(CURRENT_TIMESTAMP(), 'yyyyMMddHH') as SnapshotId,
+    CAST(DATE_FORMAT(TO_DATE(s.StartDate, 'yyyy-MM-dd'), 'yyyyMM') AS INT) as CalMonth,
+    'EA' as BaseUnitOfMeasure,
+    'JDAAPM' as SourceSystem,
+    CASE 
+        WHEN UPPER(s.HistStream) = 'ACTUAL SALES QTY' THEN s.Qty
+        ELSE 0
+    END as DemandQuantityMts,
+    CASE 
+        WHEN UPPER(s.HistStream) = 'ACTUAL SALES QTY' THEN s.Qty
+        ELSE 0
+    END as TotalDemand,
+    CASE 
+        WHEN UPPER(s.HistStream) = 'RETURN QTY' THEN s.Qty
+        ELSE 0
+    END as ReturnsQtyMts,
+    CURRENT_TIMESTAMP() as ProcessedTimestamp
+FROM b_onc.sales s
+LEFT JOIN b_onc.sales_org so ON s.Loc = so.Loc
+WHERE s.StartDate IS NOT NULL 
+  AND s.DmdUnit IS NOT NULL
+  AND s.Qty IS NOT NULL;
+
+%sql
+-- Optimize silver table after load
+OPTIMIZE s_onc.sales_ord_his;
+
+%sql
+-- Update table statistics
+ANALYZE TABLE s_onc.sales_ord_his COMPUTE STATISTICS;

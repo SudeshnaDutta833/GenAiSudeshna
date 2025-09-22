@@ -1,56 +1,52 @@
 Here's the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-* 1. Technical Requirement ID
-	+ TR-SODI-001
+* 1. Technical Requirement ID: TR-SODI-001
 
-* 2. In scope and out of scope part(s)
-	+ In scope: Integration of sales order data from source systems into the silver table "s_onc.sales_ord_his" (Reference: FR ID RITMXXXXX-OSD-SalesOrderDataIntegration)
-	+ Out of scope: Data quality checks and validation, Data loading into downstream systems
+* 2. In scope and out of scope part(s):
+  * In scope: Integration of sales order data from `b_onc.Sales` and `b_onc.sales_org` tables, transformation and loading of data into `s_onc.sales_ord_his` table (Reference: Section 2.1 of FRD)
+  * Out of scope: Data quality checks and validation, data visualization and reporting (Reference: Section 2.2 of FRD)
 
-* 3. Objective
-	+ Implement a PySpark job to integrate sales order data from source systems into the silver table "s_onc.sales_ord_his" using the provided mapping rules.
+* 3. Objective: Implement a PySpark job to integrate sales order data from multiple sources and generate output in Parquet format.
 
-* 4. Target Cluster Configuration
-	+ Cluster Name: Sales Order Data Integration Cluster
-	+ Databricks Runtime Version: 10.4 LTS
-	+ Node Type: Standard_DS3_v2
-	+ Driver Node: 1 x Standard_DS3_v2
-	+ Worker Nodes: 2-5 x Standard_DS3_v2 (autoscaling enabled)
-	+ Autoscaling: Enabled (min: 2, max: 5)
-	+ Auto Termination: Enabled (30 minutes)
-	+ Libraries Installed: PySpark, Pandas, NumPy
+* 4. Target Cluster Configuration:
+  * Cluster Name: Sales Order Data Integration Cluster
+  * Databricks Runtime Version: 10.4.x-scala2.12
+  * Node Type: Standard_DS3_v2
+  * Driver Node: 1 x Standard_DS3_v2
+  * Worker Nodes: 2-5 x Standard_DS3_v2 (autoscaling)
+  * Autoscaling: Enabled
+  * Auto Termination: Enabled (after 30 minutes of inactivity)
+  * Libraries Installed: PySpark, Pandas, NumPy
 
-* 5. Source Data Details
-	+ Dataset Name: b_onc.Sales and b_onc.sales_org
-	+ Location (Path/Table): ADLS Path (to be provided)
-	+ Format: Parquet
-	+ Description: Sales order data from source systems
+* 5. Source Data Details:
+  * Dataset Name: `b_onc.Sales`
+    * Location: `/mnt/adls/path/to/b_onc/Sales`
+    * Format: Parquet
+    * Description: Sales data
+  * Dataset Name: `b_onc.sales_org`
+    * Location: `/mnt/adls/path/to/b_onc/sales_org`
+    * Format: Parquet
+    * Description: Sales organization data
 
-* 6. Target Data Details
-	+ Output Name: s_onc.sales_ord_his
-	+ Location: Silver layer in ADLS
-	+ Format: Parquet
-	+ Description: Integrated sales order data
+* 6. Target Data Details:
+  * Output Name: `s_onc.sales_ord_his`
+    * Location: `/mnt/adls/path/to/s_onc/sales_ord_his`
+    * Format: Parquet
+    * Description: Integrated sales order data
 
-* 7. Job Flow / Pipeline Stages
-	+ Stage 1: Read data from source systems (b_onc.Sales and b_onc.sales_org) using PySpark
-	+ Stage 2: Store data in bronze tables
-	+ Stage 3: Apply mapping rules to transform data using PySpark
-	+ Stage 4: Store transformed data in silver table "s_onc.sales_ord_his"
+* 7. Job Flow / Pipeline Stages:
+  * Stage 1: Read data from `b_onc.Sales` and `b_onc.sales_org` tables using PySpark
+  * Stage 2: Join `b_onc.Sales` and `b_onc.sales_org` DataFrames on `LOC` column
+  * Stage 3: Apply transformations based on the mapping rules provided in the input file
+  * Stage 4: Write the transformed DataFrame to `s_onc.sales_ord_his` table in Parquet format
 
-* 8. Data Transformations / Business Logic
-	+ Step 1: Read data from bronze tables
-	+ Step 2: Apply mapping rules to transform data, including:
-		- APO Planning Version: populate as APO version = 001 if product from sales_org is null or blank, otherwise use LOC column from both sources.
-		- APM Model Number: map against APO Product in SCM if product from sales_org is null or blank, otherwise use LOC column from both sources.
-		- Product Planner Code: map against Product Planner code in SCM if product from sales_org is null or blank, otherwise use LOC column from both sources.
-		- Country: trim to 2 characters if product from sales_org is null or blank, otherwise use LOC column from both sources.
-		- Sales Office: use LOC + map to Region Code via X-Ref if product from sales_org is null or blank, otherwise use LOC column from both sources.
-		- Planning Partner: based on DMDGROUP field in b_onc.Sales file, with specific rules for SALES, SAMPLES, and CONSIGN.
-		- Default values for various fields (e.g., Distribution Channel, Customer Group, Ship-To Party, etc.)
-	+ Step 3: Store transformed data in silver table "s_onc.sales_ord_his"
+* 8. Data Transformations / Business Logic:
+  * Step 1: Join `b_onc.Sales` and `b_onc.sales_org` DataFrames on `LOC` column
+    * Transformation Logic: Inner join on `LOC` column
+  * Step 2: Apply transformations based on the mapping rules provided in the input file
+    * Transformation Logic: Refer to the mapping document provided in the input file
 
-* 9. Error Handling and Logging
-	+ Implement try-except blocks to catch and log exceptions during data ingestion, transformation, and loading
-	+ Log errors to a designated log file or table for monitoring and debugging purposes
-	+ Implement retry mechanism for failed tasks (e.g., data ingestion) with a maximum retry count (e.g., 3)
+* 9. Error Handling and Logging:
+  * Log errors and exceptions to a designated log file
+  * Implement retry mechanism for failed tasks
+  * Notify data engineers and analysts in case of job failure
