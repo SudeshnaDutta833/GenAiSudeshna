@@ -1,23 +1,21 @@
-Here's the detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD):
+I'll create a detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD) and the given template.
 
 **1. Technical Requirement ID**
-RITMXXXXX-OSD-APM
+RITMXXXXX-OSD-SalesOrderDataIntegration
 
 **2. Related Functional Requirement(s)**
-FR-APM-001, FR-APM-002
+None
 
 **3. Document Signatures**
-
 | Role | Name | Signature | Date |
 | --- | --- | --- | --- |
-| Functional Lead | ABC | Signature | Date |
-| Technical Lead | DEF | Signature | Date |
+| Functional Lead | [Name] | [Signature] | [Date] |
+| Technical Lead | [Name] | [Signature] | [Date] |
 
 **4. Document Revision History**
-
 | Revision | Author | Reason for Revision |
 | --- | --- | --- |
-| 1.0 | XYZ | Initial Document |
+| 1.0 | [Name] | Initial Document |
 
 **Table of Contents**
 
@@ -32,123 +30,118 @@ FR-APM-001, FR-APM-002
 9.0 Appendices / Attachments
 
 **1.0 Purpose**
-To develop a data pipeline to ingest, transform, and export APM onetime history data from ADLS to a gold view and then to a CSV file.
+To integrate sales order data from various sources into a unified format for analysis and reporting.
 
 **2.0 Scope**
 2.1: In scope for this document is:
-* Ingesting data from ADLS paths to bronze tables
-* Transforming data from bronze tables to a silver table based on the provided mapping
-* Creating a gold view from the silver table
-* Exporting data from the gold view to a CSV file
-
+* Integration of sales order data from `b_onc.Sales` and `b_onc.sales_org` tables.
+* Transformation of data into a standardized format for analysis and reporting.
 2.2: Out of scope for this document is:
-* Creation/execution of any test script
+* Data quality checks and validation.
 
 **3.0 Definitions / Acronyms**
-
 | Term / Abbreviation | Definition |
 | --- | --- |
 | ADLS | Azure Data Lake Storage |
-| APM | Advanced Planning and Manufacturing |
-| BRD | Business Requirement Document |
-| FRD | Functional Requirement Document |
+| SCM | Supply Chain Management |
+| BD | Business Data |
 
 **4.0 Roles and Responsibilities**
-
-* Data Engineer: Responsible for developing and maintaining the data pipeline
-* Data Analyst: Responsible for validating the data in the gold view and CSV file
+* Data Engineers: Responsible for designing and implementing the data integration pipeline.
+* Data Analysts: Responsible for analyzing and reporting on the integrated data.
 
 **5.0 References**
-Implement a PySpark job to ingest data from ADLS paths to bronze tables and a SQL query to transform data from bronze tables to a silver table.
+* Implement a PySpark job to integrate sales order data from `b_onc.Sales` and `b_onc.sales_org` tables.
 
 **5.1 Data Product Identification**
-APM onetime history data
+Sales Order Data Integration
 
 **5.2 Data Product Specification**
-Transformed APM onetime history data in the gold view and CSV file
+The data product will provide a unified view of sales order data from various sources, enabling analysis and reporting.
 
 **6.0 System Design & Configuration**
-Refer to the mapping provided in the input file.
+The system will be designed to integrate data from `b_onc.Sales` and `b_onc.sales_org` tables using the mapping provided in the input file.
 
 **7.0 Data Product Design**
 
 ### 7.1 Data Sources
-
 | Source | Description | Columns | ADLS Path |
 | --- | --- | --- | --- |
-| Sales Order | APM sales order data | DMDUNIT, DMDGROUP, LOC, STARDATE, DUR, TYPE, EVENT, QTY, HISTSTREAM | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order |
-| Sales Org | Sales org and plant mapping data | PRODUCT, LOC | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref |
+| `b_onc.Sales` | Sales data | `DMDUNIT`, `LOC`, `DMDGROUP`, `STARDATE`, `DUR`, `TYPE`, `EVENT`, `QTY`, `HISTSTREAM` | [ADLS Path] |
+| `b_onc.sales_org` | Sales organization data | `Sales Org` | [ADLS Path] |
 
 #### 7.1.1 Input File layout:
-
-**Sales Order**
-
 | FieldName | Description | Mandatory | Comments |
 | --- | --- | --- | --- |
-| DMDUNIT | Model Number | YES | APM Model material number |
-| DMDGROUP | Type of Sales | YES | SALES, SAMPLES, CONSIGNMENTS |
-| LOC | Individual country code | YES | Country code like SG, AEX |
-| STARDATE | Transaction date | YES | 01-Mar-24 |
-| DUR | Month duration in days | Optional | 28,29,30,31 |
-| TYPE | 1 or 2 | Optional | 1 |
-| EVENT | Comments /Notes against manual update | Optional |  |
-| QTY | Number | YES | Qty should be in EA |
-| HISTSTREAM | FCST, HIST, RTNS (Type of Transactional Data) | YES | Return or Actual Sales or Forecast |
-
-**Sales Org**
-
-| FieldName | Description | Mandatory | Comments |
-| --- | --- | --- | --- |
-| PRODUCT | Product |  |  |
-| LOC | Region, Country, Channel, Sales Org, Plant/DC |  |  |
+| `DMDUNIT` | Product | Yes |  |
+| `LOC` | Location | Yes |  |
+| `DMDGROUP` | Demand Group | Yes |  |
+| `STARDATE` | Start Date | Yes |  |
+| `DUR` | Duration | Yes |  |
+| `TYPE` | Type | Yes |  |
+| `EVENT` | Event | Yes |  |
+| `QTY` | Quantity | Yes |  |
+| `HISTSTREAM` | History Stream | Yes |  |
 
 ### 7.2 Data Ingestion:
-
-1. Ingest data from ADLS paths to bronze tables using PySpark.
-2. Add two columns: "SrcFileName" and "SnapshotDate" to the bronze tables.
+1. Read data from `b_onc.Sales` and `b_onc.sales_org` tables.
+2. Store data in Bronze tables.
 
 ### 7.3 Data Transformation:
+1. Join `b_onc.Sales` and `b_onc.sales_org` tables on `LOC` column.
+2. Apply mapping rules to transform data into standardized format.
+3. Store transformed data in Silver table `s_onc.sales_ord_his`.
 
-1. Create a silver table "s_onc.sales_orders_demand_fcst_apm_onetime_history" based on the provided mapping.
-2. Join the bronze tables "b_onc.apm_onetime_history_sales_orders" and "b_onc.apm_onetime_history_sales_org_plant_xref" on LOC and DMDUNIT/PRODUCT columns.
-3. Apply the transformation logic as per the provided mapping.
+The data transformation flow diagram is as follows:
 
-Flow Diagram:
+* Read data from Bronze tables.
+* Apply mapping rules to transform data.
+* Store transformed data in Silver table `s_onc.sales_ord_his`.
 
-* Bronze tables → Silver table → Gold view → CSV file
+The schema for the Silver table `s_onc.sales_ord_his` is as follows:
 
-Execution Steps:
-
-1. Create DDL scripts for bronze tables, silver table, and gold view.
-2. Ingest data from ADLS paths to bronze tables using PySpark.
-3. Transform data from bronze tables to silver table using SQL.
-4. Create a gold view from the silver table.
-5. Export data from the gold view to a CSV file.
-
-Table Details:
-
-| Schema | TableName | Description |
-| --- | --- | --- |
-| b_onc | apm_onetime_history_sales_orders | Raw historical order demand data from JDA. |
-| b_onc | apm_onetime_history_sales_org_plant_xref | Sales org and plant mapping data. |
-| s_onc | sales_orders_demand_fcst_apm_onetime_history | Transformed Silver table based on business mapping logic. |
-| g_external | v_sales_orders_demand_fcst_apm_onetime_history | Gold view |
+| Field Name | Description | Type | Length | Decimal Places |
+| --- | --- | --- | --- | --- |
+| `APO Planning Version` | APO Planning Version | CHAR | 10 |  |
+| `APM Model Number` | APM Model Number | CHAR | 40 | 0 |
+| `Product Planner Code` | Product Planner Code | CHAR | 40 | 0 |
+| `Country` | Country | CHAR | 3 | 0 |
+| `Sales Office` | Sales Office | CHAR | 4 | 0 |
+| `Sales Organization` | Sales Organization | CHAR | 4 | 0 |
+| `PLANT` | Plant | CHAR | 4 | 0 |
+| `Planning Partner` | Planning Partner | CHAR | 10 | 0 |
+| `Distribution Channel` | Distribution Channel | CHAR | 2 | 0 |
+| `Customer Group` | Customer Group | CHAR | 3 | 0 |
+| `Ship-To Party` | Ship-To Party | CHAR | 10 | 0 |
+| `Sold-to Party` | Sold-to Party | CHAR | 10 | 0 |
+| `WW Business` | WW Business | CHAR | 18 | 0 |
+| `Strategy Center` | Strategy Center | CHAR | 18 | 0 |
+| `Product Line` | Product Line | CHAR | 18 | 0 |
+| `Planning Set` | Planning Set | CHAR | 18 | 0 |
+| `Product Subset` | Product Subset | CHAR | 18 | 0 |
+| `Item Category` | Item Category | CHAR | 4 |  |
+| `Sales Document Type` | Sales Document Type | CHAR | 4 |  |
+| `Snapshot ID` | Snapshot ID | CHAR | 10 |  |
+| `Cal Month` | Cal Month | NUMC | 6 | 0 |
+| `Base Unit of Measure` | Base Unit of Measure | UNIT | 3 | 0 |
+| `Source System` | Source System | CHAR | 10 |  |
+| `Demand Quantity - MTS` | Demand Quantity - MTS | QUAN | 17 | 3 |
+| `Total Demand` | Total Demand | QUAN | 17 | 3 |
+| `Returns Qty - MTS` | Returns Qty - MTS | QUAN | 17 | 3 |
 
 ### 7.4 Data Export
+1. Store transformed data in Gold tables for analysis and reporting.
 
-1. Export data from the gold view to a CSV file.
-2. Upload the CSV file to the specified ADLS path.
-
-**7.4 Data Processing**
+### 7.5 Data Processing
 Databricks provides a unified platform for scalable and efficient data processing, powered by Apache Spark as its core engine. Here, Databricks notebooks are orchestrated using Databricks Workflows.
 
-**7.5 Data Optimization**
-Regular optimization scripts are scheduled in Databricks to maintain table performance and ensure efficient query execution.
+### 7.6 Data Optimization
+Regular optimization scripts are scheduled in Databricks to maintain table performance and ensure efficient query execution. These scripts typically include operations such as vacuuming, Z-ordering.
 
-**7.6 Data Security**
+### 7.7 Data Security
 Data access in Databricks is restricted to authorized user groups, such as Data Engineers and Data Analysts, based on their roles and responsibilities.
 
-**7.7 Data Archiving**
+### 7.8 Data Archiving
 Data is archived for 15 days on Azure Data Lake Storage (ADLS).
 
 **8.0 Considerations**
@@ -157,7 +150,7 @@ Data is archived for 15 days on Azure Data Lake Storage (ADLS).
 N/A
 
 ### 8.2 Exclusions
-Creation/execution of any test script.
+Creation / execution of any test script.
 
 ### 8.3 Constraints
 N/A
@@ -169,6 +162,7 @@ N/A
 N/A
 
 **9.0 Appendices / Attachments**
-
 * Mapping document
-* BRD document
+* Data dictionary
+
+I hope this FRD meets your requirements. Let me know if you need any further assistance!

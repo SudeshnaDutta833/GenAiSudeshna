@@ -1,58 +1,56 @@
-Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
+Here's the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-* 1. Technical Requirement ID: TR-APM-001
+* **1. Technical Requirement ID**: TR-OSD-001
 
-* 2. In scope and out of scope part(s):
-	+ In scope: FR-APM-001, FR-APM-002
-	+ Out of scope: Creation/execution of any test script
+* **2. In scope and out of scope part(s)**: 
+  * In scope: Integration of sales order data from `b_onc.Sales` and `b_onc.sales_org` tables, transformation of data into a standardized format for analysis and reporting (Reference: Section 2.1 of FRD)
+  * Out of scope: Data quality checks and validation (Reference: Section 2.2 of FRD)
 
-* 3. Objective: Implement a PySpark job to ingest APM onetime history data from ADLS, transform it, and export it to a gold view and then to a CSV file.
+* **3. Objective**: Implement a PySpark job to integrate sales order data from `b_onc.Sales` and `b_onc.sales_org` tables and generate output in a standardized format.
 
-* 4. Target Cluster Configuration:
-	+ Cluster Name: APM Cluster
-	+ Databricks Runtime Version: 10.4.x-scala2.12
-	+ Node Type: Standard_DS3_v2
-	+ Driver Node: Standard_DS3_v2
-	+ Worker Nodes: 2-4 nodes (autoscaling)
-	+ Autoscaling: Enabled
-	+ Auto Termination: 30 minutes
-	+ Libraries Installed: PySpark, pandas, numpy
+* **4. Target Cluster Configuration**:
+  * Cluster Name: Sales Order Data Integration Cluster
+  * Databricks Runtime Version: 10.4 LTS (or latest)
+  * Node Type: Standard_DS3_v2
+  * Driver Node: 1 x Standard_DS3_v2
+  * Worker Nodes: 2-5 x Standard_DS3_v2 (autoscaling)
+  * Autoscaling: Enabled (min: 2, max: 5)
+  * Auto Termination: Enabled (after 30 minutes of inactivity)
+  * Libraries Installed: PySpark, Pandas, NumPy
 
-* 5. Source Data Details:
-	+ Dataset Name: APM Sales Order data
-	+ Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order
-	+ Format: CSV
-	+ Description: APM sales order data
-	+ Dataset Name: Sales org and plant mapping data
-	+ Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref
-	+ Format: CSV
-	+ Description: Sales org and plant mapping data
+* **5. Source Data Details**:
+  * Dataset Name: Sales Data
+  * Location: `b_onc.Sales` table
+  * Format: Delta Lake
+  * Description: Sales data from `b_onc.Sales` table
+  * Dataset Name: Sales Organization Data
+  * Location: `b_onc.sales_org` table
+  * Format: Delta Lake
+  * Description: Sales organization data from `b_onc.sales_org` table
 
-* 6. Target Data Details:
-	+ Output Name: Gold view
-	+ Location: g_external schema
-	+ Format: Delta
-	+ Description: Transformed APM onetime history data
-	+ Output Name: CSV file
-	+ Location: Specified ADLS path
-	+ Format: CSV
-	+ Description: Transformed APM onetime history data
+* **6. Target Data Details**:
+  * Output Name: Integrated Sales Order Data
+  * Location: `s_onc.sales_ord_his` Silver table
+  * Format: Delta Lake
+  * Description: Integrated sales order data in a standardized format
 
-* 7. Job Flow / Pipeline Stages:
-	+ Ingest data from ADLS to bronze tables using PySpark
-	+ Transform data from bronze tables to silver table using SQL
-	+ Create a gold view from the silver table
-	+ Export data from the gold view to a CSV file
+* **7. Job Flow / Pipeline Stages**:
+  * Read data from `b_onc.Sales` and `b_onc.sales_org` tables
+  * Store data in Bronze tables
+  * Join `b_onc.Sales` and `b_onc.sales_org` tables on `LOC` column
+  * Apply mapping rules to transform data into standardized format
+  * Store transformed data in Silver table `s_onc.sales_ord_his`
+  * Store transformed data in Gold tables for analysis and reporting
 
-* 8. Data Transformations / Business Logic:
-	+ Step: Ingest data from ADLS to bronze tables
-	+ Description: Ingest APM sales order data and sales org and plant mapping data
-	+ Transformation Logic: Add "SrcFileName" and "SnapshotDate" columns to the bronze tables
-	+ Step: Transform data from bronze tables to silver table
-	+ Description: Join bronze tables on LOC and DMDUNIT/PRODUCT columns and apply transformation logic
-	+ Transformation Logic: As per the provided mapping
+* **8. Data Transformations / Business Logic**:
+  * Step: Join `b_onc.Sales` and `b_onc.sales_org` tables
+  * Description: Join sales data with sales organization data on `LOC` column
+  * Transformation Logic: Inner join on `LOC` column
+  * Step: Apply mapping rules
+  * Description: Apply mapping rules to transform data into standardized format
+  * Transformation Logic: Use mapping document to apply transformation rules
 
-* 9. Error Handling and Logging:
-	+ Log errors and exceptions in a log file
-	+ Notify data engineers in case of job failure
-	+ Store error records in a separate table for further analysis
+* **9. Error Handling and Logging**:
+  * Log errors and exceptions to a logging table
+  * Implement retry mechanism for failed tasks
+  * Notify data engineers and analysts in case of job failure
