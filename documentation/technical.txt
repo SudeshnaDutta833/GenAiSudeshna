@@ -1,48 +1,58 @@
 Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-* 1. Technical Requirement ID: TR-DPS-001
+* 1. Technical Requirement ID: TR-APM-001
 
 * 2. In scope and out of scope part(s):
-	+ In scope: FR-DPS-001 (Ingestion of ABC sales order delta data from ECC, Transformation of data to include key organizational attributes, Export of transformed data to a CSV file)
-	+ Out of scope: Creation/execution of test scripts
+	+ In scope: FR-APM-001, FR-APM-002
+	+ Out of scope: Creation/execution of any test script
 
-* 3. Objective: Implement a PySpark job to ingest, transform, and export ABC sales order delta data for global demand planning.
+* 3. Objective: Implement a PySpark job to ingest APM onetime history data from ADLS, transform it, and export it to a gold view and then to a CSV file.
 
 * 4. Target Cluster Configuration:
-	+ Cluster Name: Demand Planning Cluster
-	+ Databricks Runtime Version: 7.3.x-scala2.12
+	+ Cluster Name: APM Cluster
+	+ Databricks Runtime Version: 10.4.x-scala2.12
 	+ Node Type: Standard_DS3_v2
 	+ Driver Node: Standard_DS3_v2
-	+ Worker Nodes: 2-4 ( Autoscaling enabled)
-	+ Autoscaling: Enabled (min: 2, max: 4)
-	+ Auto Termination: Enabled (30 minutes)
+	+ Worker Nodes: 2-4 nodes (autoscaling)
+	+ Autoscaling: Enabled
+	+ Auto Termination: 30 minutes
 	+ Libraries Installed: PySpark, pandas, numpy
 
 * 5. Source Data Details:
-	+ ECC Sales Order Delta Data:
-		- Location: ADLS Path (provided in input file)
-		- Format: CSV
-		- Description: ECC sales order delta data
+	+ Dataset Name: APM Sales Order data
+	+ Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order
+	+ Format: CSV
+	+ Description: APM sales order data
+	+ Dataset Name: Sales org and plant mapping data
+	+ Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref
+	+ Format: CSV
+	+ Description: Sales org and plant mapping data
 
 * 6. Target Data Details:
-	+ Transformed Data:
-		- Output Name: EVST_SCM_demand_history.csv
-		- Location: ADLS Path (to be configured)
-		- Format: CSV
-		- Description: Transformed ABC sales order delta data for global demand planning
+	+ Output Name: Gold view
+	+ Location: g_external schema
+	+ Format: Delta
+	+ Description: Transformed APM onetime history data
+	+ Output Name: CSV file
+	+ Location: Specified ADLS path
+	+ Format: CSV
+	+ Description: Transformed APM onetime history data
 
 * 7. Job Flow / Pipeline Stages:
-	+ Stage 1: Ingest ECC sales order delta data into a bronze table
-	+ Stage 2: Transform data to include key organizational attributes (create lookup table, derive sales office value, segregate sales orders, update organizational elements, etc.)
-	+ Stage 3: Export transformed data to a CSV file
+	+ Ingest data from ADLS to bronze tables using PySpark
+	+ Transform data from bronze tables to silver table using SQL
+	+ Create a gold view from the silver table
+	+ Export data from the gold view to a CSV file
 
 * 8. Data Transformations / Business Logic:
-	+ Step 1: Create a lookup table based on the join condition of ship-to country and customer classification values
-	+ Step 2: Derive sales office value using the lookup table
-	+ Step 3: Segregate sales orders into Revenue, Non-Rev, or Customer Consignment based on Sales Doc Type
-	+ Step 4: Update organizational elements, master data attributes, transactional data quantities, units of measure, and quantity conversions to the EA (Each) unit of measure
+	+ Step: Ingest data from ADLS to bronze tables
+	+ Description: Ingest APM sales order data and sales org and plant mapping data
+	+ Transformation Logic: Add "SrcFileName" and "SnapshotDate" columns to the bronze tables
+	+ Step: Transform data from bronze tables to silver table
+	+ Description: Join bronze tables on LOC and DMDUNIT/PRODUCT columns and apply transformation logic
+	+ Transformation Logic: As per the provided mapping
 
 * 9. Error Handling and Logging:
-	+ Log errors and exceptions in a separate log file
-	+ Implement retry mechanism for failed tasks
-	+ Notify data engineers and analysts in case of job failure
+	+ Log errors and exceptions in a log file
+	+ Notify data engineers in case of job failure
+	+ Store error records in a separate table for further analysis

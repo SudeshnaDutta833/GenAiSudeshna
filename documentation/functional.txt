@@ -1,22 +1,23 @@
-Here is the detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD):
+Here's the detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD):
 
 **1. Technical Requirement ID**
-RITM12345-OSD-DPS
+RITMXXXXX-OSD-APM
 
 **2. Related Functional Requirement(s)**
-FR-DPS-001: To support accurate global demand planning, the ABC sales order delta data must include key organizational attributes.
+FR-APM-001, FR-APM-002
 
 **3. Document Signatures**
 
 | Role | Name | Signature | Date |
 | --- | --- | --- | --- |
-| Functional Lead | ABC |  |  |
+| Functional Lead | ABC | Signature | Date |
+| Technical Lead | DEF | Signature | Date |
 
 **4. Document Revision History**
 
 | Revision | Author | Reason for Revision |
 | --- | --- | --- |
-| 1.0 |  | Initial Document |
+| 1.0 | XYZ | Initial Document |
 
 **Table of Contents**
 
@@ -31,168 +32,143 @@ FR-DPS-001: To support accurate global demand planning, the ABC sales order delt
 9.0 Appendices / Attachments
 
 **1.0 Purpose**
-To design and implement a data pipeline to ingest, transform, and export ABC sales order delta data for global demand planning.
+To develop a data pipeline to ingest, transform, and export APM onetime history data from ADLS to a gold view and then to a CSV file.
 
 **2.0 Scope**
 2.1: In scope for this document is:
-* Ingestion of ABC sales order delta data from ECC
-* Transformation of data to include key organizational attributes
-* Export of transformed data to a CSV file
+* Ingesting data from ADLS paths to bronze tables
+* Transforming data from bronze tables to a silver table based on the provided mapping
+* Creating a gold view from the silver table
+* Exporting data from the gold view to a CSV file
 
 2.2: Out of scope for this document is:
-* Creation/execution of test scripts
+* Creation/execution of any test script
 
 **3.0 Definitions / Acronyms**
 
 | Term / Abbreviation | Definition |
 | --- | --- |
-| ECC | ERP Central Component |
 | ADLS | Azure Data Lake Storage |
-| DPS | Demand Planning System |
+| APM | Advanced Planning and Manufacturing |
+| BRD | Business Requirement Document |
+| FRD | Functional Requirement Document |
 
 **4.0 Roles and Responsibilities**
 
-* Data Engineers: Responsible for designing and implementing the data pipeline
-* Data Analysts: Responsible for validating the transformed data
+* Data Engineer: Responsible for developing and maintaining the data pipeline
+* Data Analyst: Responsible for validating the data in the gold view and CSV file
 
 **5.0 References**
-Implement a PySpark job to ingest, transform, and export ABC sales order delta data.
+Implement a PySpark job to ingest data from ADLS paths to bronze tables and a SQL query to transform data from bronze tables to a silver table.
 
 **5.1 Data Product Identification**
-s_xyz.sales_orders_demand_fcst_everest
+APM onetime history data
 
 **5.2 Data Product Specification**
-The data product is designed to provide transformed ABC sales order delta data for global demand planning.
+Transformed APM onetime history data in the gold view and CSV file
 
 **6.0 System Design & Configuration**
 Refer to the mapping provided in the input file.
 
 **7.0 Data Product Design**
 
-**7.1 Data Sources**
+### 7.1 Data Sources
 
 | Source | Description | Columns | ADLS Path |
 | --- | --- | --- | --- |
-| ECC Sales Order | ECC sales order data | Various |  |
+| Sales Order | APM sales order data | DMDUNIT, DMDGROUP, LOC, STARDATE, DUR, TYPE, EVENT, QTY, HISTSTREAM | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_order |
+| Sales Org | Sales org and plant mapping data | PRODUCT, LOC | abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/isc/apm_onetime_history/apm_sales_org_plant_xref |
 
-**7.1.1 Input File layout:**
+#### 7.1.1 Input File layout:
+
+**Sales Order**
 
 | FieldName | Description | Mandatory | Comments |
 | --- | --- | --- | --- |
-| VBPA-VBELN | Sales Order Number | Yes |  |
-| VBAP-MATNR | Material Number | Yes |  |
-| VBAP-KUNNR | Sold-to Party | Yes |  |
-| ... | ... | ... | ... |
+| DMDUNIT | Model Number | YES | APM Model material number |
+| DMDGROUP | Type of Sales | YES | SALES, SAMPLES, CONSIGNMENTS |
+| LOC | Individual country code | YES | Country code like SG, AEX |
+| STARDATE | Transaction date | YES | 01-Mar-24 |
+| DUR | Month duration in days | Optional | 28,29,30,31 |
+| TYPE | 1 or 2 | Optional | 1 |
+| EVENT | Comments /Notes against manual update | Optional |  |
+| QTY | Number | YES | Qty should be in EA |
+| HISTSTREAM | FCST, HIST, RTNS (Type of Transactional Data) | YES | Return or Actual Sales or Forecast |
 
-**7.2 Data Ingestion:**
-Step 1: Ingest ECC sales order delta data into a bronze table.
+**Sales Org**
 
-**7.3 Data Transformation:**
+| FieldName | Description | Mandatory | Comments |
+| --- | --- | --- | --- |
+| PRODUCT | Product |  |  |
+| LOC | Region, Country, Channel, Sales Org, Plant/DC |  |  |
 
-1. Create a lookup table based on the join condition of ship-to country and customer classification values.
-2. Derive sales office value using the lookup table.
-3. Segregate sales orders into Revenue, Non-Rev, or Customer Consignment based on Sales Doc Type.
-4. Update organizational elements, master data attributes, transactional data quantities, units of measure, and quantity conversions to the EA (Each) unit of measure.
+### 7.2 Data Ingestion:
 
-**Flow Diagram:**
+1. Ingest data from ADLS paths to bronze tables using PySpark.
+2. Add two columns: "SrcFileName" and "SnapshotDate" to the bronze tables.
 
-```
-          +---------------+
-          |  ECC Sales   |
-          |  Order Delta  |
-          +---------------+
-                  |
-                  |
-                  v
-          +---------------+
-          | Bronze Table  |
-          +---------------+
-                  |
-                  |
-                  v
-          +---------------+
-          | Silver Table  |
-          |  (s_xyz.sales_  |
-          |  orders_demand_  |
-          |  fcst_everest)  |
-          +---------------+
-                  |
-                  |
-                  v
-          +---------------+
-          | Gold View     |
-          |  (g_external.v_  |
-          |  sales_orders_  |
-          |  demand_fcst_everest) |
-          +---------------+
-                  |
-                  |
-                  v
-          +---------------+
-          | CSV Export    |
-          +---------------+
-```
+### 7.3 Data Transformation:
 
-**7.3.1 Schema TableName Description**
+1. Create a silver table "s_onc.sales_orders_demand_fcst_apm_onetime_history" based on the provided mapping.
+2. Join the bronze tables "b_onc.apm_onetime_history_sales_orders" and "b_onc.apm_onetime_history_sales_org_plant_xref" on LOC and DMDUNIT/PRODUCT columns.
+3. Apply the transformation logic as per the provided mapping.
+
+Flow Diagram:
+
+* Bronze tables → Silver table → Gold view → CSV file
+
+Execution Steps:
+
+1. Create DDL scripts for bronze tables, silver table, and gold view.
+2. Ingest data from ADLS paths to bronze tables using PySpark.
+3. Transform data from bronze tables to silver table using SQL.
+4. Create a gold view from the silver table.
+5. Export data from the gold view to a CSV file.
+
+Table Details:
 
 | Schema | TableName | Description |
 | --- | --- | --- |
-| s_xyz | sales_orders_demand_fcst_everest | Silver table containing transformed data |
-| g_external | v_sales_orders_demand_fcst_everest | Gold view containing final transformed data |
+| b_onc | apm_onetime_history_sales_orders | Raw historical order demand data from JDA. |
+| b_onc | apm_onetime_history_sales_org_plant_xref | Sales org and plant mapping data. |
+| s_onc | sales_orders_demand_fcst_apm_onetime_history | Transformed Silver table based on business mapping logic. |
+| g_external | v_sales_orders_demand_fcst_apm_onetime_history | Gold view |
 
-**7.4 Data Export:**
-Step 1: Export the gold view to a CSV file named EVST_SCM_demand_history.csv.
+### 7.4 Data Export
 
-**7.5 AMO KT:**
-N/A
+1. Export data from the gold view to a CSV file.
+2. Upload the CSV file to the specified ADLS path.
 
-**7.6 Data Storage:**
-Data is stored in Azure Data Lake Storage (ADLS).
+**7.4 Data Processing**
+Databricks provides a unified platform for scalable and efficient data processing, powered by Apache Spark as its core engine. Here, Databricks notebooks are orchestrated using Databricks Workflows.
 
-**7.7 Data Processing:**
-Databricks provides a unified platform for scalable and efficient data processing, powered by Apache Spark as its core engine.
-
-**7.8 Data Optimization:**
+**7.5 Data Optimization**
 Regular optimization scripts are scheduled in Databricks to maintain table performance and ensure efficient query execution.
 
-**7.9 Data Security:**
-Data access in Databricks is restricted to authorized user groups, such as Data Engineers and Data Analysts.
+**7.6 Data Security**
+Data access in Databricks is restricted to authorized user groups, such as Data Engineers and Data Analysts, based on their roles and responsibilities.
 
-**7.10 Data Archiving:**
+**7.7 Data Archiving**
 Data is archived for 15 days on Azure Data Lake Storage (ADLS).
-
-**7.11 MLOps:**
-N/A
-
-**7.12 Regulatory & Compliance:**
-N/A
-
-**7.13 Backup & Recovery:**
-N/A
-
-**7.14 Release Management:**
-
-| CHM# | Summary |
-| --- | --- |
-|  | Initial Release |
 
 **8.0 Considerations**
 
-**8.1 Assumptions:**
+### 8.1 Assumptions
 N/A
 
-**8.2 Exclusions:**
-Creation/execution of test scripts.
+### 8.2 Exclusions
+Creation/execution of any test script.
 
-**8.3 Constraints:**
+### 8.3 Constraints
 N/A
 
-**8.4 Dependencies:**
+### 8.4 Dependencies
 N/A
 
-**8.5 Decisions:**
+### 8.5 Decisions
 N/A
 
 **9.0 Appendices / Attachments**
 
-* Mapping document from input file.
+* Mapping document
+* BRD document
