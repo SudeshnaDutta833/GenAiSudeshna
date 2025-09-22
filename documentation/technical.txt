@@ -1,0 +1,54 @@
+Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
+
+* **1. Technical Requirement ID**: TR-SODI-001
+
+* **2. In scope and out of scope part(s)**: 
+    + In scope: Integration of sales order data from two sources: b_onc.Sales and b_onc.sales_org, transformation and mapping of data into the silver table "s_onc.sales_ord_his".
+    + Out of scope: Data quality checks and validation, data loading into the gold layer.
+
+* **3. Objective**: Implement a PySpark job to integrate sales order data from multiple sources into the silver table "s_onc.sales_ord_his".
+
+* **4. Target Cluster Configuration**:
+    + Cluster Name: Sales Order Data Integration Cluster
+    + Databricks Runtime Version: 10.4 LTS
+    + Node Type: Standard_DS3_v2
+    + Driver Node: Standard_DS3_v2
+    + Worker Nodes: 2-4 (autoscaling)
+    + Autoscaling: Enabled
+    + Auto Termination: 30 minutes
+    + Libraries Installed: PySpark, pandas, numpy
+
+* **5. Source Data Details**:
+    + Dataset Name: b_onc.Sales
+    + Location: ADLS Path
+    + Format: Parquet
+    + Description: Sales data
+    + Dataset Name: b_onc.sales_org
+    + Location: ADLS Path
+    + Format: Parquet
+    + Description: Sales organization data
+
+* **6. Target Data Details**:
+    + Output Name: s_onc.sales_ord_his
+    + Location: Silver layer
+    + Format: Delta Lake
+    + Description: Transformed and integrated sales order data
+
+* **7. Job Flow / Pipeline Stages**:
+    + Stage 1: Read data from b_onc.Sales and b_onc.sales_org
+    + Stage 2: Join data on LOC column
+    + Stage 3: Apply mapping rules to transform data
+    + Stage 4: Load transformed data into s_onc.sales_ord_his
+
+* **8. Data Transformations / Business Logic**:
+    + Step: Join data from b_onc.Sales and b_onc.sales_org on LOC column
+    + Description: Join data to combine sales and sales organization information
+    + Transformation Logic: Inner join on LOC column
+    + Step: Apply mapping rules to transform data
+    + Description: Apply mapping rules to transform data into required format
+    + Transformation Logic: Use mapping rules specified in input file
+
+* **9. Error Handling and Logging**:
+    + Log errors and exceptions to a log file
+    + Use try-except blocks to handle errors during data ingestion, transformation, and loading
+    + Log data quality issues and transformation errors for further analysis
