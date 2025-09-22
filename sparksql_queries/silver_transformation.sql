@@ -1,92 +1,61 @@
 %sql
--- Transformation SQL for loading data from bronze to silver
-INSERT OVERWRITE TABLE s_onc.sales_ord_his
+-- SQL transformation for loading data from bronze to silver table
+INSERT INTO s_xyz.sales_orders_demand_fcst_ABC_onetime_history
 SELECT
-  -- APO Planning Version - hardcoded value
-  '001' AS APOPlanningVersion,
-  
-  -- APM Model Number from DMDUNIT
-  s.DMDUNIT AS APMModelNumber,
-  
-  -- Product Planner Code from DMDUNIT
-  s.DMDUNIT AS ProductPlannerCode,
-  
-  -- Country - trim to 2 characters
-  SUBSTRING(s.LOC, 1, 2) AS Country,
-  
-  -- Sales Office - LOC + map to Region Code
-  CASE 
-    WHEN so.PRODUCT IS NULL OR TRIM(so.PRODUCT) = '' THEN s.LOC
-    ELSE s.LOC
-  END AS SalesOffice,
-  
-  -- Sales Organization - Map LOC to BD Salesorg
-  COALESCE(so.SalesOrg, 'NONE') AS SalesOrganization,
-  
-  -- PLANT - Map LOC to BD Location
-  COALESCE(so.PlantDC, 'NONE') AS PLANT,
-  
-  -- Planning Partner based on DMDGROUP
-  CASE 
-    WHEN s.DMDGROUP = 'SALES' THEN 'R'
-    WHEN s.DMDGROUP = 'SAMPLES' THEN 'N'
-    WHEN s.DMDGROUP = 'CONSIGN' THEN 'C'
-    ELSE s.DMDGROUP
-  END AS PlanningPartner,
-  
-  -- Distribution Channel - Default to 10
-  '10' AS DistributionChannel,
-  
-  -- Customer Group - Default to 500
-  '500' AS CustomerGroup,
-  
-  -- Ship-To Party - Default to NONE
-  'NONE' AS ShipToParty,
-  
-  -- Sold-to Party - Default to NONE
-  'NONE' AS SoldToParty,
-  
-  -- WW Business - Default to None
-  'None' AS WWBusiness,
-  
-  -- Strategy Center - Default to None
-  'None' AS StrategyCenter,
-  
-  -- Product Line - Default to None
-  'None' AS ProductLine,
-  
-  -- Planning Set - Default to None
-  'None' AS PlanningSet,
-  
-  -- Product Subset - Default to None
-  'None' AS ProductSubset,
-  
-  -- Item Category - Default to None
-  'None' AS ItemCategory,
-  
-  -- Sales Document Type - Default to None
-  'None' AS SalesDocumentType,
-  
-  -- Snapshot ID - Use system date/time
-  DATE_FORMAT(CURRENT_TIMESTAMP(), 'yyyyMMddHH') AS SnapshotID,
-  
-  -- Cal Month - Map from STARTDATE
-  CAST(DATE_FORMAT(TO_DATE(s.STARDATE, 'yyyy-MM-dd'), 'yyyyMM') AS BIGINT) AS CalMonth,
-  
-  -- Base Unit of Measure - Default to EA
-  'EA' AS BaseUnitOfMeasure,
-  
-  -- Source System - Default to 'JDAAPM'
-  'JDAAPM' AS SourceSystem,
-  
-  -- Demand Quantity - MTS - HISTSTREAM = Actual Sales Qty
-  CASE WHEN s.HISTSTREAM = 'Actual Sales Qty' THEN CAST(s.QTY AS DECIMAL(17,3)) ELSE 0 END AS DemandQuantityMTS,
-  
-  -- Total Demand - Same as Demand Quantity
-  CASE WHEN s.HISTSTREAM = 'Actual Sales Qty' THEN CAST(s.QTY AS DECIMAL(17,3)) ELSE 0 END AS TotalDemand,
-  
-  -- Returns Qty - MTS - HISTSTREAM = Return Qty
-  CASE WHEN s.HISTSTREAM = 'Return Qty' THEN CAST(s.QTY AS DECIMAL(17,3)) ELSE 0 END AS ReturnsQtyMTS
-  
-FROM b_onc.sales s
-LEFT JOIN b_onc.sales_org so ON s.LOC = so.LOC;
+    '001' AS APOPlanningVersion,  -- Hard-coded value as per requirements
+    so.DMDUNIT AS ABCModelNumber,
+    so.DMDUNIT AS ProductPlannerCode,
+    -- Transform country code based on requirements
+    CASE 
+        WHEN LENGTH(so.LOC) = 3 AND SUBSTRING(so.LOC, 3, 1) = 'X' THEN SUBSTRING(so.LOC, 1, 2)
+        ELSE so.LOC
+    END AS Country,
+    so.LOC AS SalesOffice,  -- Sales Office is the LOC from history file
+    -- Sales Organization from mapping table
+    COALESCE(xref.REGION_SALES_ORG, 
+        CASE 
+            WHEN LENGTH(so.LOC) = 3 AND SUBSTRING(so.LOC, 3, 1) = 'X' THEN 'EUX'
+            ELSE 'EUR'  -- Default value
+        END
+    ) AS SalesOrganization,
+    -- Plant from mapping table (BD Plant)
+    COALESCE(xref.PLANT, '0001') AS PLANT,  -- Default plant if not found
+    -- Planning partner based on DMDGROUP
+    CASE 
+        WHEN so.DMDGROUP = 'SALES' THEN 'R'
+        WHEN so.DMDGROUP = 'SAMPLES' THEN 'N'
+        WHEN so.DMDGROUP = 'CONSIGN' THEN 'C'
+        ELSE 'R'  -- Default value
+    END AS PlanningPartner,
+    '10' AS DistributionChannel,  -- Default value as per requirements
+    '500' AS CustomerGroup,       -- Default value as per requirements
+    'NONE' AS ShipToParty,        -- Default value as per requirements
+    'NONE' AS SoldToParty,        -- Default value as per requirements
+    'NONE' AS WWBusiness,         -- Default value
+    'NONE' AS StrategyCenter,     -- Default value
+    'NONE' AS ProductLine,        -- Default value
+    'NONE' AS PlanningSet,        -- Default value
+    'NONE' AS ProductSubset,      -- Default value
+    'NONE' AS ItemCategory,       -- Default value
+    'NONE' AS SalesDocumentType,  -- Default value
+    CAST(CURRENT_TIMESTAMP() AS STRING) AS SnapshotID,  -- System date and time
+    -- Convert STARTDATE to CalMonth (YYYYMM format)
+    CAST(
+        CONCAT(
+            YEAR(TO_DATE(so.STARTDATE, 'dd-MMM-yy')),
+            LPAD(MONTH(TO_DATE(so.STARTDATE, 'dd-MMM-yy')), 2, '0')
+        ) AS INT
+    ) AS CalMonth,
+    'EA' AS BaseUnitOfMeasure,    -- Default value as per requirements
+    'JDAABC' AS SourceSystem,     -- Default value as per requirements
+    -- Demand quantity - only for HIST records
+    CASE WHEN so.HISTSTREAM = 'HIST' THEN so.QTY ELSE 0 END AS DemandQuantityMTS,
+    -- Total demand is same as Demand Quantity
+    CASE WHEN so.HISTSTREAM = 'HIST' THEN so.QTY ELSE 0 END AS TotalDemand,
+    -- Returns quantity - only for RTNS records
+    CASE WHEN so.HISTSTREAM = 'RTNS' THEN so.QTY ELSE 0 END AS ReturnsQtyMTS,
+    CURRENT_TIMESTAMP() AS ProcessedTimestamp
+FROM b_um_xyz.ABC_onetime_history_sales_orders so
+LEFT JOIN b_um_xyz.ABC_onetime_history_sales_org_plant_xref xref
+    ON so.DMDUNIT = xref.Product AND so.LOC = xref.LOC
+WHERE so.HISTSTREAM IN ('HIST', 'RTNS');  -- Only include HIST and RTNS data, exclude FCST

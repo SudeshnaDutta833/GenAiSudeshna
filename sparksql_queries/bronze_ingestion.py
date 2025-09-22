@@ -1,115 +1,44 @@
-# Bronze Layer Data Ingestion - PySpark Code
+# PySpark code for ingesting data from source to bronze tables
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import *
-from pyspark.sql.types import *
-from datetime import datetime
+from pyspark.sql.functions import input_file_name, current_timestamp
 
-# Initialize Spark Session
-spark = SparkSession.builder \
-    .appName("Bronze_Layer_Ingestion") \
-    .config("spark.sql.adaptive.enabled", "true") \
-    .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
-    .getOrCreate()
+# Initialize Spark session
+spark = SparkSession.builder.appName("ABC_Data_Ingestion").getOrCreate()
 
-# Define source paths
-sales_source_path = "/mnt/datalake/raw/onc/sales/"
-sales_org_source_path = "/mnt/datalake/raw/onc/sales_org/"
+# Define storage account placeholder
+storage_account = "your_storage_account_name"
 
-# Define bronze table paths
-sales_bronze_path = "/mnt/datalake/bronze/onc/sales/"
-sales_org_bronze_path = "/mnt/datalake/bronze/onc/sales_org/"
+# Define source and destination paths
+sales_orders_source_path = f"abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order"
+sales_org_plant_source_path = f"abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref"
 
-# Sales table ingestion
-def ingest_sales_data():
-    try:
-        # Read sales data from source
-        sales_df = spark.read \
-            .option("header", "true") \
-            .option("inferSchema", "false") \
-            .csv(sales_source_path)
-        
-        # Add metadata columns
-        sales_df_with_metadata = sales_df \
-            .withColumn("SourceFile", input_file_name()) \
-            .withColumn("LoadTimestamp", current_timestamp()) \
-            .select(
-                col("PRODUCT").alias("Product"),
-                col("DMDUNIT").alias("DmdUnit"),
-                col("DMDGROUP").alias("DmdGroup"),
-                col("LOC").alias("Loc"),
-                col("STARDATE").alias("StartDate"),
-                col("DUR").alias("Dur"),
-                col("TYPE").alias("Type"),
-                col("EVENT").alias("Event"),
-                col("QTY").cast("decimal(17,3)").alias("Qty"),
-                col("HISTSTREAM").alias("HistStream"),
-                col("SourceFile"),
-                col("LoadTimestamp")
-            )
-        
-        # Write to bronze layer
-        sales_df_with_metadata.write \
-            .format("delta") \
-            .mode("append") \
-            .option("mergeSchema", "true") \
-            .save(sales_bronze_path)
-        
-        print(f"Successfully ingested {sales_df_with_metadata.count()} records to b_onc.sales")
-        
-    except Exception as e:
-        print(f"Error ingesting sales data: {str(e)}")
-        raise
-
-# Sales Org table ingestion
-def ingest_sales_org_data():
-    try:
-        # Read sales org data from source
-        sales_org_df = spark.read \
-            .option("header", "true") \
-            .option("inferSchema", "false") \
-            .csv(sales_org_source_path)
-        
-        # Add metadata columns
-        sales_org_df_with_metadata = sales_org_df \
-            .withColumn("SourceFile", input_file_name()) \
-            .withColumn("LoadTimestamp", current_timestamp()) \
-            .select(
-                col("LOC").alias("Loc"),
-                col("Region").alias("Region"),
-                col("Country").alias("Country"),
-                col("Channel").alias("Channel"),
-                col("Sales Org").alias("SalesOrg"),
-                col("Plant/DC").alias("PlantDc"),
-                col("SourceFile"),
-                col("LoadTimestamp")
-            )
-        
-        # Write to bronze layer
-        sales_org_df_with_metadata.write \
-            .format("delta") \
-            .mode("append") \
-            .option("mergeSchema", "true") \
-            .save(sales_org_bronze_path)
-        
-        print(f"Successfully ingested {sales_org_df_with_metadata.count()} records to b_onc.sales_org")
-        
-    except Exception as e:
-        print(f"Error ingesting sales org data: {str(e)}")
-        raise
-
-# Execute ingestion functions
-if __name__ == "__main__":
-    print("Starting Bronze Layer Data Ingestion...")
+# Ingest ABC sales orders data to bronze
+def ingest_sales_orders():
+    # Read the sales orders data
+    df_sales_orders = spark.read.option("header", "true").option("inferSchema", "true").csv(sales_orders_source_path)
     
-    # Ingest sales data
-    ingest_sales_data()
+    # Add source file column
+    df_sales_orders = df_sales_orders.withColumn("SourceFile", input_file_name())
     
-    # Ingest sales org data
-    ingest_sales_org_data()
+    # Write to bronze table
+    df_sales_orders.write.format("delta").mode("append").saveAsTable("b_um_xyz.ABC_onetime_history_sales_orders")
     
-    print("Bronze Layer Data Ingestion Completed Successfully!")
+    print("Sales orders data ingested successfully to bronze layer")
 
-# Refresh bronze tables
-spark.sql("REFRESH TABLE b_onc.sales")
-spark.sql("REFRESH TABLE b_onc.sales_org")
+# Ingest sales org plant cross reference data to bronze
+def ingest_sales_org_plant():
+    # Read the sales org plant data
+    df_sales_org_plant = spark.read.option("header", "true").option("inferSchema", "true").csv(sales_org_plant_source_path)
+    
+    # Add source file column
+    df_sales_org_plant = df_sales_org_plant.withColumn("SourceFile", input_file_name())
+    
+    # Write to bronze table
+    df_sales_org_plant.write.format("delta").mode("append").saveAsTable("b_um_xyz.ABC_onetime_history_sales_org_plant_xref")
+    
+    print("Sales org plant cross reference data ingested successfully to bronze layer")
+
+# Execute the ingestion functions
+ingest_sales_orders()
+ingest_sales_org_plant()
