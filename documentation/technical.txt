@@ -1,52 +1,120 @@
-Here's the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
+# Technical Requirement Document (TRD)
 
-* 1. Technical Requirement ID: TR-SODI-001
+## 1. Technical Requirement ID
+* TR-SALES-001
 
-* 2. In scope and out of scope part(s):
-  * In scope: Integration of sales order data from `b_onc.Sales` and `b_onc.sales_org` tables, transformation and loading of data into `s_onc.sales_ord_his` table (Reference: Section 2.1 of FRD)
-  * Out of scope: Data quality checks and validation, data visualization and reporting (Reference: Section 2.2 of FRD)
+## 2. In scope and out of scope part(s)
+* **In Scope**: FR-001 through FR-017 - Development of ETL processes to transform data from b_onc.Sales and b_onc.sales_org tables into the s_onc.sales_ord_his silver table
+* **Out of Scope**: 
+  * Any modifications to source data structures
+  * Creation of downstream gold layer tables
+  * Integration with external systems beyond specified source tables
 
-* 3. Objective: Implement a PySpark job to integrate sales order data from multiple sources and generate output in Parquet format.
+## 3. Objective
+* Implement a PySpark job to transform sales data from bronze tables (b_onc.Sales and b_onc.sales_org) to silver table (s_onc.sales_ord_his) applying specified business rules and mapping logic.
 
-* 4. Target Cluster Configuration:
-  * Cluster Name: Sales Order Data Integration Cluster
-  * Databricks Runtime Version: 10.4.x-scala2.12
-  * Node Type: Standard_DS3_v2
-  * Driver Node: 1 x Standard_DS3_v2
-  * Worker Nodes: 2-5 x Standard_DS3_v2 (autoscaling)
-  * Autoscaling: Enabled
-  * Auto Termination: Enabled (after 30 minutes of inactivity)
-  * Libraries Installed: PySpark, Pandas, NumPy
+## 4. Target Cluster Configuration
+* **Cluster Name**: sales-data-transformation-cluster
+* **Databricks Runtime Version**: 10.4 LTS (includes Apache Spark 3.2.1, Scala 2.12)
+* **Node Type**: Standard_DS4_v2
+* **Driver Node**: Standard_DS4_v2
+* **Worker Nodes**: Standard_DS4_v2
+* **Autoscaling**: Enabled (2-8 workers)
+* **Auto Termination**: 30 minutes
+* **Libraries Installed**: PySpark, Delta Lake, PyArrow
 
-* 5. Source Data Details:
-  * Dataset Name: `b_onc.Sales`
-    * Location: `/mnt/adls/path/to/b_onc/Sales`
-    * Format: Parquet
-    * Description: Sales data
-  * Dataset Name: `b_onc.sales_org`
-    * Location: `/mnt/adls/path/to/b_onc/sales_org`
-    * Format: Parquet
-    * Description: Sales organization data
+## 5. Source Data Details
+* **Dataset 1**
+  * Name: Sales Data
+  * Location: b_onc.Sales
+  * Format: Delta Table
+  * Description: Contains sales transaction data including DMDUNIT, DMDGROUP, LOC, STARDATE, QTY, HISTSTREAM
 
-* 6. Target Data Details:
-  * Output Name: `s_onc.sales_ord_his`
-    * Location: `/mnt/adls/path/to/s_onc/sales_ord_his`
-    * Format: Parquet
-    * Description: Integrated sales order data
+* **Dataset 2**
+  * Name: Sales Organization Data
+  * Location: b_onc.sales_org
+  * Format: Delta Table
+  * Description: Contains sales organization data including PRODUCT, LOC, Region, Country, Channel, Sales Org, Plant/DC
 
-* 7. Job Flow / Pipeline Stages:
-  * Stage 1: Read data from `b_onc.Sales` and `b_onc.sales_org` tables using PySpark
-  * Stage 2: Join `b_onc.Sales` and `b_onc.sales_org` DataFrames on `LOC` column
-  * Stage 3: Apply transformations based on the mapping rules provided in the input file
-  * Stage 4: Write the transformed DataFrame to `s_onc.sales_ord_his` table in Parquet format
+## 6. Target Data Details
+* **Output Name**: Sales Order History
+* **Location**: s_onc.sales_ord_his
+* **Format**: Delta Table
+* **Description**: Silver layer table containing transformed sales order history data with standardized fields and business rules applied
 
-* 8. Data Transformations / Business Logic:
-  * Step 1: Join `b_onc.Sales` and `b_onc.sales_org` DataFrames on `LOC` column
-    * Transformation Logic: Inner join on `LOC` column
-  * Step 2: Apply transformations based on the mapping rules provided in the input file
-    * Transformation Logic: Refer to the mapping document provided in the input file
+## 7. Job Flow / Pipeline Stages
+* **Stage 1**: Extract data from source tables (b_onc.Sales and b_onc.sales_org)
+* **Stage 2**: Join tables on LOC field
+* **Stage 3**: Apply mapping rules and transformations
+* **Stage 4**: Apply default values and conditional logic
+* **Stage 5**: Calculate derived fields
+* **Stage 6**: Write transformed data to target table
+* **Stage 7**: Perform data quality validations
 
-* 9. Error Handling and Logging:
-  * Log errors and exceptions to a designated log file
-  * Implement retry mechanism for failed tasks
-  * Notify data engineers and analysts in case of job failure
+## 8. Data Transformations / Business Logic
+* **Step 1**: Join source tables
+  * Description: Join b_onc.Sales and b_onc.sales_org tables on LOC field
+  * Logic: Left join to preserve all sales records
+
+* **Step 2**: Apply field mappings
+  * Description: Map source fields to target fields
+  * Logic:
+    * Set APO Planning Version = "001" (hard-coded)
+    * Map DMDUNIT to APM Model Number using APO Product mapping
+    * Map DMDUNIT to Product Planner Code using SCM mapping
+    * Derive Country by trimming LOC to 2 characters
+    * Determine Sales Office by combining LOC with Region Code
+    * Map LOC to BD Salesorg for Sales Organization
+    * Map LOC to BD Location for PLANT
+
+* **Step 3**: Apply Planning Partner logic
+  * Description: Set Planning Partner based on DMDGROUP value
+  * Logic:
+    * If DMDGROUP = "SALES", set Planning Partner = "R"
+    * If DMDGROUP = "SAMPLES", set Planning Partner = "N"
+    * If DMDGROUP = "CONSIGN", set Planning Partner = "C"
+
+* **Step 4**: Set default values
+  * Description: Apply default values for specified fields
+  * Logic:
+    * Distribution Channel = "10"
+    * Customer Group = "500"
+    * Ship-To Party = "NONE"
+    * Sold-to Party = "NONE"
+    * WW Business = "None"
+    * Strategy Center = "None"
+    * Product Line = "None"
+    * Planning Set = "None"
+    * Product Subset = "None"
+    * Item Category = "None"
+    * Sales Document Type = "None"
+    * Base Unit of Measure = "EA"
+    * Source System = "JDAAPM"
+
+* **Step 5**: Generate derived fields
+  * Description: Calculate additional required fields
+  * Logic:
+    * Generate Snapshot ID using current system date/time
+    * Convert STARTDATE to Cal Month format
+    * Set Demand Quantity - MTS = QTY where HISTSTREAM = "Actual Sales Qty"
+    * Set Total Demand = Demand Quantity
+    * Set Returns Qty - MTS = QTY where HISTSTREAM = "Return Qty"
+
+* **Step 6**: Apply conditional logic for product-dependent mappings
+  * Description: Handle cases where product from sales_org is null/blank
+  * Logic: Implement null checking and fallback values for product-dependent fields
+
+## 9. Error Handling and Logging
+* **Error Handling**:
+  * Implement schema validation for source data
+  * Capture and log records that fail transformation rules
+  * Create error table to store rejected records with reason for rejection
+  * Implement retry logic for transient failures
+  * Set up alerting for critical failures
+
+* **Logging**:
+  * Log job start and end times
+  * Track record counts at each transformation stage
+  * Log performance metrics for optimization
+  * Implement detailed logging for debugging purposes
+  * Create summary report of processed records, successful transformations, and errors

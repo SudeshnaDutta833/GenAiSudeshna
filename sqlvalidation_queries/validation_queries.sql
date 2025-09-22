@@ -1,109 +1,74 @@
--- Validation Queries for Data Quality and Completeness
+-- Validation queries to check data quality and transformation correctness
+
+-- 1. Check if bronze tables have data
+%sql
+SELECT COUNT(*) AS record_count FROM b_onc.sales;
 
 %sql
--- Validate Bronze Layer - Sales Table
-SELECT 
-    'b_onc.sales' as TableName,
-    COUNT(*) as RecordCount,
-    COUNT(DISTINCT Product) as UniqueProducts,
-    COUNT(DISTINCT Loc) as UniqueLocations,
-    MIN(LoadTimestamp) as FirstLoadTime,
-    MAX(LoadTimestamp) as LastLoadTime
-FROM b_onc.sales;
+SELECT COUNT(*) AS record_count FROM b_onc.sales_org;
 
+-- 2. Check if silver table has data
 %sql
--- Validate Bronze Layer - Sales Org Table
-SELECT 
-    'b_onc.sales_org' as TableName,
-    COUNT(*) as RecordCount,
-    COUNT(DISTINCT Loc) as UniqueLocations,
-    COUNT(DISTINCT Region) as UniqueRegions,
-    MIN(LoadTimestamp) as FirstLoadTime,
-    MAX(LoadTimestamp) as LastLoadTime
-FROM b_onc.sales_org;
+SELECT COUNT(*) AS record_count FROM s_onc.sales_ord_his;
 
+-- 3. Check if gold view is accessible
 %sql
--- Validate Silver Layer - Data Quality Checks
+SELECT COUNT(*) AS record_count FROM g_onc.sales_order_history_view;
+
+-- 4. Validate Planning Partner transformation
+%sql
 SELECT 
-    'Data Quality Check' as CheckType,
-    COUNT(*) as TotalRecords,
-    COUNT(CASE WHEN ApoPlanningVersion IS NULL THEN 1 END) as NullApoPlanningVersion,
-    COUNT(CASE WHEN ApmModelNumber IS NULL THEN 1 END) as NullApmModelNumber,
-    COUNT(CASE WHEN Country IS NULL OR LENGTH(Country) != 2 THEN 1 END) as InvalidCountry,
-    COUNT(CASE WHEN CalMonth IS NULL THEN 1 END) as NullCalMonth,
-    COUNT(CASE WHEN DemandQuantityMts < 0 THEN 1 END) as NegativeDemandQty
+  DMDGROUP,
+  PlanningPartner,
+  COUNT(*) as count
+FROM b_onc.sales s
+JOIN s_onc.sales_ord_his h ON s.DMDUNIT = h.APMModelNumber AND s.LOC = h.Country
+GROUP BY DMDGROUP, PlanningPartner
+ORDER BY DMDGROUP;
+
+-- 5. Validate Demand Quantity transformation
+%sql
+SELECT 
+  HISTSTREAM,
+  SUM(QTY) as total_qty_bronze,
+  SUM(DemandQuantityMTS) as total_demand_silver
+FROM b_onc.sales s
+JOIN s_onc.sales_ord_his h ON s.DMDUNIT = h.APMModelNumber AND s.LOC = h.Country
+GROUP BY HISTSTREAM;
+
+-- 6. Validate Returns Qty transformation
+%sql
+SELECT 
+  HISTSTREAM,
+  SUM(QTY) as total_qty_bronze,
+  SUM(ReturnsQtyMTS) as total_returns_silver
+FROM b_onc.sales s
+JOIN s_onc.sales_ord_his h ON s.DMDUNIT = h.APMModelNumber AND s.LOC = h.Country
+WHERE HISTSTREAM = 'Return Qty'
+GROUP BY HISTSTREAM;
+
+-- 7. Check for any null values in key fields
+%sql
+SELECT 
+  SUM(CASE WHEN APMModelNumber IS NULL THEN 1 ELSE 0 END) as null_model_count,
+  SUM(CASE WHEN Country IS NULL THEN 1 ELSE 0 END) as null_country_count,
+  SUM(CASE WHEN PlanningPartner IS NULL THEN 1 ELSE 0 END) as null_partner_count
 FROM s_onc.sales_ord_his;
 
+-- 8. Verify data distribution by country
 %sql
--- Validate Silver Layer - Transformation Rules
 SELECT 
-    PlanningPartner,
-    COUNT(*) as RecordCount
+  Country,
+  COUNT(*) as record_count,
+  SUM(DemandQuantityMTS) as total_demand,
+  SUM(ReturnsQtyMTS) as total_returns
 FROM s_onc.sales_ord_his
-GROUP BY PlanningPartner
-ORDER BY RecordCount DESC;
-
-%sql
--- Validate Gold View - Summary Statistics
-SELECT 
-    'Gold View Summary' as ViewName,
-    COUNT(*) as SummaryRecords,
-    SUM(TotalDemandQuantityMts) as TotalDemandSum,
-    SUM(TotalReturnsQtyMts) as TotalReturnsSum,
-    MIN(CalMonth) as EarliestMonth,
-    MAX(CalMonth) as LatestMonth
-FROM g_onc.vw_sales_ord_his_summary;
-
-%sql
--- Data Lineage Validation - Bronze to Silver
-SELECT 
-    'Bronze to Silver Lineage' as CheckType,
-    b.bronze_count,
-    s.silver_count,
-    ROUND((s.silver_count * 100.0 / b.bronze_count), 2) as TransformationRate
-FROM 
-    (SELECT COUNT(*) as bronze_count FROM b_onc.sales) b
-CROSS JOIN 
-    (SELECT COUNT(*) as silver_count FROM s_onc.sales_ord_his) s;
-
-%sql
--- Monthly Data Distribution Validation
-SELECT 
-    CalMonth,
-    COUNT(*) as RecordCount,
-    SUM(DemandQuantityMts) as TotalDemand,
-    SUM(ReturnsQtyMts) as TotalReturns,
-    COUNT(DISTINCT Country) as UniqueCountries
-FROM s_onc.sales_ord_his
-GROUP BY CalMonth
-ORDER BY CalMonth DESC;
-
-%sql
--- Country-wise Data Distribution
-SELECT 
-    Country,
-    COUNT(*) as RecordCount,
-    SUM(DemandQuantityMts) as TotalDemand,
-    AVG(DemandQuantityMts) as AvgDemand
-FROM s_onc.sales_ord_his
-WHERE Country IS NOT NULL
 GROUP BY Country
-ORDER BY TotalDemand DESC;
+ORDER BY record_count DESC;
 
+-- 9. Check if any data was lost during transformation
 %sql
--- Planning Partner Distribution Validation
 SELECT 
-    PlanningPartner,
-    COUNT(*) as RecordCount,
-    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as Percentage
-FROM s_onc.sales_ord_his
-GROUP BY PlanningPartner
-ORDER BY RecordCount DESC;
-
-%sql
--- Data Freshness Check
-SELECT 
-    'Data Freshness' as CheckType,
-    MAX(ProcessedTimestamp) as LastProcessedTime,
-    DATEDIFF(HOUR, MAX(ProcessedTimestamp), CURRENT_TIMESTAMP()) as HoursSinceLastLoad
-FROM s_onc.sales_ord_his;
+  (SELECT COUNT(*) FROM b_onc.sales) as bronze_count,
+  (SELECT COUNT(*) FROM s_onc.sales_ord_his) as silver_count,
+  (SELECT COUNT(*) FROM g_onc.sales_order_history_view) as gold_count;
