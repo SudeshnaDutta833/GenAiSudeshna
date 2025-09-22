@@ -1,4 +1,4 @@
-I'll create a detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD) and the given template.
+Here is the detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD):
 
 **1. Technical Requirement ID**
 RITMXXXXX-OSD-SalesOrderDataIntegration
@@ -32,202 +32,137 @@ None
 9.0 Appendices / Attachments
 
 **1.0 Purpose**
-To integrate sales order data from multiple sources into a unified silver table "s_onc.sales_ord_his" for further analysis and processing.
+To integrate sales order data from source systems into the silver table "s_onc.sales_ord_his" using the provided mapping rules.
 
 **2.0 Scope**
 2.1: In scope for this document is:
-* Integration of sales order data from two sources: b_onc.Sales and b_onc.sales_org
-* Transformation and mapping of data into the silver table "s_onc.sales_ord_his"
+* Integration of sales order data from source systems into the silver table "s_onc.sales_ord_his"
+* Application of mapping rules to transform data
 2.2: Out of scope for this document is:
 * Data quality checks and validation
-* Data loading into the gold layer
+* Data loading into downstream systems
 
 **3.0 Definitions / Acronyms**
 
 | Term / Abbreviation | Definition |
 | --- | --- |
 | ADLS | Azure Data Lake Storage |
-| DDL | Data Definition Language |
 | SCM | Supply Chain Management |
 
 **4.0 Roles and Responsibilities**
 
-* Data Engineers: responsible for designing and implementing the data integration pipeline
+* Data Engineers: responsible for developing and maintaining the data integration pipeline
 * Data Analysts: responsible for validating and analyzing the integrated data
 
 **5.0 References**
-
-* Implement a PySpark job to integrate sales order data from multiple sources into the silver table "s_onc.sales_ord_his".
+Implement a PySpark job to integrate sales order data from source systems into the silver table "s_onc.sales_ord_his".
 
 **5.1 Data Product Identification**
 Sales Order Data Integration
 
 **5.2 Data Product Specification**
-The integrated sales order data will be stored in the silver table "s_onc.sales_ord_his" with the specified columns and data types.
+Integration of sales order data from source systems into the silver table "s_onc.sales_ord_his" using the provided mapping rules.
 
 **6.0 System Design & Configuration**
 Refer to the mapping provided in the input file.
 
 **7.0 Data Product Design**
 
-### 7.1 Data Sources
-
-| Source | Description | Columns | ADLS Path |
-| --- | --- | --- | --- |
-| b_onc.Sales | Sales data | PRODUCT, DMDUNIT, LOC, STARDATE, DUR, TYPE, EVENT, QTY, HISTSTREAM | [ADLS Path] |
-| b_onc.sales_org | Sales organization data | Sales Org | [ADLS Path] |
-
-#### 7.1.1 Input File layout:
-
-| FieldName | Description | Mandatory | Comments |
-| --- | --- | --- | --- |
-| PRODUCT | Product identifier | Yes |  |
-| DMDUNIT | Demand unit | Yes |  |
-| LOC | Location | Yes |  |
-| STARDATE | Start date | Yes |  |
-| DUR | Duration | Yes |  |
-| TYPE | Type | Yes |  |
-| EVENT | Event | Yes |  |
-| QTY | Quantity | Yes |  |
-| HISTSTREAM | History stream | Yes |  |
-| Sales Org | Sales organization | Yes |  |
-
-### 7.2 Data Ingestion:
-1. Read data from the two sources: b_onc.Sales and b_onc.sales_org.
-2. Store the data in the bronze layer.
-
-### 7.3 Data Transformation:
-1. Join the data from the two sources based on the LOC column.
-2. Apply the mapping rules specified in the input file to transform the data.
-3. Store the transformed data in the silver table "s_onc.sales_ord_his".
-
-Flow Diagram:
-```
-          +---------------+
-          |  b_onc.Sales  |
-          +---------------+
-                  |
-                  |
-                  v
-          +---------------+
-          |  b_onc.sales_org  |
-          +---------------+
-                  |
-                  |
-                  v
-          +---------------+
-          |  Join on LOC  |
-          +---------------+
-                  |
-                  |
-                  v
-          +---------------+
-          |  Apply Mapping  |
-          |  Rules          |
-          +---------------+
-                  |
-                  |
-                  v
-          +---------------+
-          |  s_onc.sales_ord_his  |
-          +---------------+
-```
-
-Schema TableName Description
-* Bronze: b_onc_Sales, b_onc_sales_org - Raw data from the sources
-* Silver: s_onc_sales_ord_his - Transformed and integrated sales order data
-
-### 7.4 Data Export
-1. Store the integrated data in the silver table "s_onc.sales_ord_his".
-
-### 7.2 AMO KT:
+* **7.1 Data Sources**
+	+ Source 1: b_onc.Sales
+	+ Source 2: b_onc.sales_org
+	+ Columns: as per the mapping table
+	+ ADLS Path: [provide path]
+	* **7.1.1 Input File layout:**
+		- FieldName: PRODUCT, DMDUNIT, DMDGROUP, LOC, STARDATE, DUR, TYPE, EVENT, QTY, HISTSTREAM
+		- Description: Sales order data from source systems
+		- Mandatory: Yes
+		- Comments: None
+* **7.2 Data Ingestion:**
+	1. Read data from source systems using PySpark.
+	2. Store data in bronze tables.
+* **7.3 Data Transformation:**
+	1. Apply mapping rules to transform data.
+	2. Use PySpark to perform data transformation.
+	3. Store transformed data in silver table "s_onc.sales_ord_his".
+	* Flow Diagram:
+		- [Provide flow diagram]
+	* Execution Steps:
+		1. Read data from bronze tables.
+		2. Apply mapping rules to transform data.
+		3. Store transformed data in silver table "s_onc.sales_ord_his".
+	* Bronze, Silver, and Gold Table Details:
+		- Schema: [provide schema]
+		- TableName: s_onc.sales_ord_his
+		- Description: Sales order data integrated from source systems
+* **7.4 Data Export:**
+	1. Store transformed data in silver table "s_onc.sales_ord_his".
+* **7.2 AMO KT:**
 Not applicable
-
-### 7.3 Data:
-The data is stored from the source to the target through the following steps:
-1. Data ingestion into the bronze layer.
-2. Data transformation and mapping.
-3. Data loading into the silver table "s_onc.sales_ord_his".
-
-### 7.4 Data Processing
+* **7.3 Data:**
+Data is stored from source to target using PySpark.
+* **7.4 Data Processing:**
 Databricks provides a unified platform for scalable and efficient data processing, powered by Apache Spark as its core engine. Here, Databricks notebooks are orchestrated using Databricks Workflows.
-
-### 7.5 Data Optimization
+* **7.5 Data Optimization:**
 Regular optimization scripts are scheduled in Databricks to maintain table performance and ensure efficient query execution. These scripts typically include operations such as vacuuming, Z-ordering.
-
-### 7.6 Data Security
+* **7.6 Data Security:**
 Data access in Databricks is restricted to authorized user groups, such as Data Engineers and Data Analysts, based on their roles and responsibilities.
-
-### 7.7 Data Archiving
+* **7.7 Data Archiving:**
 Data is archived for 15 days on Azure Data Lake Storage (ADLS).
-
-### 7.8 MLOps
+* **7.8 MLOps:**
 Not applicable
-
-### 7.9 Regulatory & Compliance
+* **7.9 Regulatory & Compliance:**
 Not applicable
-
-### 7.10 Backup & Recovery
+* **7.10 Backup & Recovery:**
 Not applicable
-
-### 7.11 Release Management
-Change Management (CHM) Summary: [Insert CHM Summary]
+* **7.11 Release Management:**
+CHM# Summary
 
 **8.0 Considerations**
 
-### 8.1 Assumptions
+* **8.1 Assumptions:**
 None
-
-### 8.2 Exclusions
+* **8.2 Exclusions:**
 Creation / execution of any test script.
-
-### 8.3 Constraints
+* **8.3 Constraints:**
 None
-
-### 8.4 Dependencies
+* **8.4 Dependencies:**
 None
-
-### 8.5 Decisions
+* **8.5 Decisions:**
 None
-
-CHM# Summary: [Insert CHM Summary]
+* CHM# Summary
 
 **9.0 Appendices / Attachments**
 
-* Mapping document from the input file.
-* Other relevant documents. 
+* Mapping table for silver table "s_onc.sales_ord_his"
+* Other relevant documents from input PDF. 
 
-Here are the detailed functional requirements in bullet points as per the "Coding Requirements" section:
+Here are the requirements in bullet points for section 7.3 Data Transformation:
 
-* The silver table "s_onc.sales_ord_his" will be populated with data from two sources: b_onc.Sales and b_onc.sales_org.
-* The data will be joined on the LOC column.
-* The mapping rules specified in the input file will be applied to transform the data.
-* The following columns will be populated in the silver table:
-	+ APO Planning Version
-	+ APM Model Number
-	+ Product Planner Code
-	+ Country
-	+ Sales Office
-	+ Sales Organization
-	+ PLANT
-	+ Planning Partner
-	+ Distribution Channel
-	+ Customer Group
-	+ Ship-To Party
-	+ Sold-to Party
-	+ WW Business
-	+ Strategy Center
-	+ Product Line
-	+ Planning Set
-	+ Product Subset
-	+ Item Category
-	+ Sales Document Type
-	+ Snapshot ID
-	+ Cal Month
-	+ Base Unit of Measure
-	+ Source System
-	+ Demand Quantity - MTS
-	+ Total Demand
-	+ Returns Qty - MTS
-* The data will be transformed and loaded into the silver table "s_onc.sales_ord_his" using a PySpark job.
-* The data will be stored in the silver table with the specified data types and formats.
+* Read data from bronze tables.
+* Apply mapping rules to transform data, including:
+	+ APO Planning Version: populate as APO version = 001 if product from sales_org is null or blank, otherwise use LOC column from both sources.
+	+ APM Model Number: map against APO Product in SCM if product from sales_org is null or blank, otherwise use LOC column from both sources.
+	+ Product Planner Code: map against Product Planner code in SCM if product from sales_org is null or blank, otherwise use LOC column from both sources.
+	+ Country: trim to 2 characters if product from sales_org is null or blank, otherwise use LOC column from both sources.
+	+ Sales Office: use LOC + map to Region Code via X-Ref if product from sales_org is null or blank, otherwise use LOC column from both sources.
+	+ Planning Partner: based on DMDGROUP field in b_onc.Sales file, with specific rules for SALES, SAMPLES, and CONSIGN.
+	+ Distribution Channel: default to 10.
+	+ Customer Group: default to 500.
+	+ Ship-To Party: default to NONE.
+	+ Sold-to Party: default to NONE.
+	+ WW Business: default to None.
+	+ Strategy Center: default to None.
+	+ Product Line: default to None.
+	+ Planning Set: default to None.
+	+ Product Subset: default to None.
+	+ Item Category: default to None.
+	+ Sales Document Type: default to None.
+	+ Snapshot ID: use system date/time.
+	+ Cal Month: map from STARTDATE.
+	+ Base Unit of Measure: default to EA.
+	+ Source System: default to 'JDAAPM'.
+	+ Demand Quantity - MTS: HISTSTREAM = Actual Sales Qty.
+	+ Total Demand: same as Demand Quantity.
+	+ Returns Qty - MTS: HISTSTREAM = Return Qty.
+* Store transformed data in silver table "s_onc.sales_ord_his".
