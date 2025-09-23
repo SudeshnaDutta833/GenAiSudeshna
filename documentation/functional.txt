@@ -1,20 +1,16 @@
-Here is the Functional Requirement Document (FRD) based on the given Business Requirement Document (BRD):
+Here is the detailed Functional Requirement Document (FRD) based on the provided Business Requirement Document (BRD):
 
 **1.0 Purpose**
 
-The purpose of this project is to design a data ingestion and processing system to support accurate global demand planning by including key organizational attributes such as Sales Organization, Region, Sales Office, Plant, Planning partner, Demand quantity, and Return quantity.
+The purpose of this project is to support accurate global demand planning by ingesting ABC historical sales order data, enriching it with regional sales organization and plant mapping data, and generating extracts for consumption by downstream systems.
 
 **2.0 Data Product Design**
 
 **2.1 Data Sources**
 
-The data sources for this project are two flat files: 
-1. JDA-ABC 5 years Order Demand History file
-2. JDA - ABC Regional, sales orgs & plant mapping data file
+The following input files are required for this project:
 
-**2.1.1 Input File layout:**
-
-1. Source file name: JDA-ABC 5 years Order Demand History file
+1. **JDA-ABC 5 years Order Demand History** ( flat file)
    |Column Name|Data Type|
    |DMDUNIT|CHAR(40)|
    |DMDGROUP|CHAR(10)|
@@ -22,72 +18,79 @@ The data sources for this project are two flat files:
    |STARTDATE|DATE|
    |DUR|NUMERIC|
    |TYPE|CHAR(1)|
-   |EVENT|CHAR(1)|
+   |EVENT|CHAR(10)|
    |QTY|NUMERIC|
    |HISTSTREAM|CHAR(4)|
 
-2. Source file name: JDA - ABC Regional, sales orgs & plant mapping data file
+2. **JDA - ABC Regional, sales orgs & plant mapping data** (flat file)
    |Column Name|Data Type|
    |Product|CHAR(40)|
    |LOC|CHAR(3)|
    |REGION/Sales Org|CHAR(4)|
    |COUNTRY|CHAR(3)|
    |CHANNEL|CHAR(10)|
+   |BD sales org|CHAR(4)|
+   |BD Plant|CHAR(4)|
 
-**2.2 Data Ingestion:**
+**2.2 Data Ingestion**
+
+The following data ingestion is required:
 
 |Source file|source file location|bronze table name|
-|JDA-ABC 5 years Order Demand History file|abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order|b_um_xyz.ABC_onetime_history_sales_orders|
-|JDA - ABC Regional, sales orgs & plant mapping data file|abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref|b_um_xyz.ABC_onetime_history_sales_org_plant_xref|
+| --- | --- | --- |
+|ABC_sales_order|abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order|b_um_xyz.ABC_onetime_history_sales_orders|
+|ABC_sales_org_plant_xref|abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref|b_um_xyz.ABC_onetime_history_sales_org_plant_xref|
 
-**2.3 Data Transformation:**
+**2.3 Data Transformation**
 
-The data transformation involves the following steps:
+The data transformation steps are as follows:
 
-1. Ingest the two source files into the bronze layer.
-2. Create a silver view (s_xyz.sales_orders_demand_fcst_ABC_onetime_history) by joining the two bronze tables based on the product and LOC columns.
-3. Apply the mapping rules to populate the required fields such as Sales Organization, Region, Sales Office, Plant, Planning partner, Demand quantity, and Return quantity.
-4. Create a gold view (g_external.v_sales_orders_demand_fcst_ABC_onetime_history) from the silver view.
+1. Ingest data from the source files into the bronze tables.
+2. Create a silver table `s_xyz.sales_orders_demand_fcst_ABC_onetime_history` by joining the bronze tables on the product and LOC columns.
+   * Enrich the dataset with regional sales organization and plant mapping data.
+   * Apply business rules to populate key fields such as Sales Organization, Region, Sales Office, Plant, and Planning Partner.
+3. Create a gold view `g_external.v_sales_orders_demand_fcst_ABC_onetime_history` from the silver table.
 
 **2.4 Data Export**
 
+The following data extract is required:
+
 |Source table|extract name|extract file format|extract location|
+| --- | --- | --- | --- |
 |g_external.v_sales_orders_demand_fcst_ABC_onetime_history|5Y_ABC_onetime_SCM_demand_history|CSV|abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/|
 
-**2.5 Output File layout:**
+**2.5 Output File layout**
 
-Extract file name: 5Y_ABC_onetime_SCM_demand_history.csv
-   |Column Name|Data Type|
-   |APO Planning Version|CHAR(10)|
-   |ABC Model Number|CHAR(40)|
-   |Product Planner Code|CHAR(40)|
-   |Country|CHAR(3)|
-   |Sales Office|CHAR(4)|
-   |Sales Organization|CHAR(4)|
-   |PLANT|CHAR(4)|
-   |Planning Partner|CHAR(10)|
-   |Distribution Channel|CHAR(2)|
-   |Customer  Group|CHAR(3)|
-   |Ship-To Party|CHAR(10)|
-   |Sold-to party|CHAR(10)|
-   |WW Business|CHAR(18)|
-   |Strategy Center|CHAR(18)|
-   |Product Line|CHAR(18)|
-   |Planning Set|CHAR(18)|
-   |Product Subset|CHAR(18)|
-   |Item Category|CHAR(4)|
-   |Sales Document Type|CHAR(4)|
-   |Snapshot ID|CHAR(10)|
-   |Cal month|NUMERIC|
-   |Base Unit of Measure|CHAR(3)|
-   |Source system|CHAR(10)|
-   |Demand Quantity - MTS|NUMERIC|
-   |Returns Qty - MTS|NUMERIC|
+The final extract file layout is as follows:
 
-**2.6 Data flow:**
+Extract file name : 5Y_ABC_onetime_SCM_demand_history.csv
+|Column Name|Data Type|
+|APO Planning Version|CHAR(10)|
+|ABC Model Number|CHAR(40)|
+|Product Planner Code|CHAR(40)|
+|Country|CHAR(3)|
+|Sales Office|CHAR(4)|
+|Sales Organization|CHAR(4)|
+|PLANT|CHAR(4)|
+|Planning Partner|CHAR(10)|
+|Distribution Channel|CHAR(2)|
+|Customer  Group|CHAR(3)|
+|Ship-To Party|CHAR(10)|
+|Sold-to party|CHAR(10)|
+|WW Business|CHAR(18)|
+|Strategy Center|CHAR(18)|
+|Product Line|CHAR(18)|
+|Planning Set|CHAR(18)|
+|Product Subset|CHAR(18)|
+|Item Category|CHAR(4)|
+|Sales Document Type|CHAR(4)|
+|Snapshot ID|CHAR(10)|
+|Cal month|NUMERIC(6)|
+|Base Unit of Measure|UNIT(3)|
+|Source system|CHAR(10)|
+|Demand Quantity - MTS|QUAN(17,3)|
+|Returns Qty - MTS|QUAN(17,3)|
 
-No dataflow creation is required as per the input file. 
+**2.6 Data flow**
 
-However, the data flow can be summarized as:
-|Dataflow Name|Source table|
-|Data Ingestion and Processing|b_um_xyz.ABC_onetime_history_sales_orders, b_um_xyz.ABC_onetime_history_sales_org_plant_xref|
+No dataflow creation is required.

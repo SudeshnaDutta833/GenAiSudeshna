@@ -1,59 +1,59 @@
 Here is the Technical Requirement Document (TRD) based on the provided Functional Requirement Document (FRD):
 
-* **Technical Requirement ID**: TR-DIP-001
+* **Technical Requirement ID**: TR-DP-001
 
 * **In scope and out of scope part(s)**: 
-  * In scope: Data ingestion, data transformation, and data export as per FR-2.1, FR-2.2, FR-2.3, and FR-2.4
-  * Out of scope: Dataflow creation as per FR-2.6
+  * In scope: FR-2.1, FR-2.2, FR-2.3, FR-2.4, FR-2.5
+  * Out of scope: Dataflow creation (FR-2.6)
 
-* **Objective**: Implement a PySpark job to ingest data from two flat files, transform the data by joining and applying mapping rules, and export the output in CSV format.
+* **Objective**: Implement a PySpark job to ingest historical sales order data, enrich it with regional sales organization and plant mapping data, and generate extracts for consumption by downstream systems.
 
 * **Target Cluster Configuration**:
-  * Cluster Name: Data Ingestion and Processing Cluster
-  * Databricks Runtime Version: 7.3.x-scala2.12
+  * Cluster Name: Demand Planning Cluster
+  * Databricks Runtime Version: 7.3 LTS
   * Node Type: Standard_DS3_v2
   * Driver Node: Standard_DS3_v2
-  * Worker Nodes: 2-4 nodes (autoscaling)
+  * Worker Nodes: 2-4 (Autoscaling)
   * Autoscaling: Enabled
-  * Auto Termination: Enabled (30 minutes)
+  * Auto Termination: 30 minutes
   * Libraries Installed: 
-    * PySpark
-    * Spark SQL
+    * pyspark
+    * pandas
 
 * **Source Data Details**:
-  * Dataset Name: JDA-ABC 5 years Order Demand History file
+  * Dataset Name: JDA-ABC 5 years Order Demand History
     * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_order
-    * Format: Flat file
+    * Format: Flat File
     * Description: Historical sales order data
-  * Dataset Name: JDA - ABC Regional, sales orgs & plant mapping data file
+  * Dataset Name: JDA - ABC Regional, sales orgs & plant mapping data
     * Location: abfss://user-managed@{storage_account}.dfs.core.windows.net/inbound/xyz/ABC_onetime_history/ABC_sales_org_plant_xref
-    * Format: Flat file
-    * Description: Sales organization and plant mapping data
+    * Format: Flat File
+    * Description: Regional sales organization and plant mapping data
 
 * **Target Data Details**:
-  * Output Name: 5Y_ABC_onetime_SCM_demand_history.csv
+  * Output Name: 5Y_ABC_onetime_SCM_demand_history
     * Location: abfss://mft@{storage_account}.dfs.core.windows.net/outbound/supply-chain-management/scm-demand-fcst/
     * Format: CSV
-    * Description: Transformed sales order demand data
+    * Description: Final extract file for downstream systems
 
 * **Job Flow / Pipeline Stages**:
-  * Stage 1: Ingest data from two flat files into bronze tables
-  * Stage 2: Create silver view by joining bronze tables
-  * Stage 3: Apply mapping rules to populate required fields
-  * Stage 4: Create gold view from silver view
-  * Stage 5: Export gold view to CSV file
+  * Ingest data from source files into bronze tables
+  * Create silver table by joining bronze tables on product and LOC columns
+  * Create gold view from silver table
+  * Generate final extract file from gold view
 
 * **Data Transformations / Business Logic**:
-  * Step 1: Ingest data from two flat files into bronze tables
-    * Transformation Logic: Use PySpark to read flat files and write to bronze tables
-  * Step 2: Create silver view by joining bronze tables on product and LOC columns
-    * Transformation Logic: Use Spark SQL to join bronze tables and create silver view
-  * Step 3: Apply mapping rules to populate required fields
-    * Transformation Logic: Use PySpark to apply mapping rules and populate required fields
-  * Step 4: Create gold view from silver view
-    * Transformation Logic: Use Spark SQL to create gold view from silver view
+  * Step: Ingest data into bronze tables
+    * Description: Ingest JDA-ABC 5 years Order Demand History and JDA - ABC Regional, sales orgs & plant mapping data into bronze tables
+    * Transformation Logic: Use PySpark to read flat files and create bronze tables
+  * Step: Create silver table
+    * Description: Join bronze tables on product and LOC columns and enrich dataset with regional sales organization and plant mapping data
+    * Transformation Logic: Use PySpark to join tables and apply business rules to populate key fields
+  * Step: Create gold view
+    * Description: Create gold view from silver table
+    * Transformation Logic: Use PySpark to create gold view
 
 * **Error Handling and Logging**:
-  * Log errors and exceptions to a log file
-  * Use try-except blocks to handle errors during data ingestion, transformation, and export
-  * Log job execution metrics (e.g., job start time, end time, rows processed) to a log file
+  * Use try-except blocks to catch and log exceptions during data ingestion, transformation, and export
+  * Log errors and warnings to a logging table or file for monitoring and debugging purposes
+  * Implement data quality checks to ensure data integrity and accuracy

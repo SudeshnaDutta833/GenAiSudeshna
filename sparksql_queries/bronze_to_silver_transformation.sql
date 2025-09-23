@@ -1,101 +1,52 @@
 %sql
--- Transformation from Bronze to Silver layer
-INSERT OVERWRITE TABLE s_onc.sales_ord_his
+-- Transform data from bronze to silver layer
+INSERT INTO s_xyz.sales_orders_demand_fcst_ABC_onetime_history
 SELECT
-  -- APO Planning Version (hardcoded as per requirement)
-  '001' AS APOPlanningVersion,
-  
-  -- APM Model Number from Sales table
-  s.DMDUNIT AS APMModelNumber,
-  
-  -- Product Planner Code from Sales table
-  s.DMDUNIT AS ProductPlannerCode,
-  
-  -- Country from Sales table (trimmed to 2 characters)
-  SUBSTRING(s.LOC, 1, 3) AS Country,
-  
-  -- Sales Office (LOC + mapped Region Code)
+  '001' AS APOPlanningVersion, -- Hardcoded as per requirement
+  h.DMDUNIT AS ABCModelNumber,
+  h.DMDUNIT AS ProductPlannerCode,
+  CASE
+    -- Handle export country code transformation by dropping the last 'X' character
+    WHEN SUBSTRING(h.LOC, LENGTH(h.LOC), 1) = 'X' THEN SUBSTRING(h.LOC, 1, LENGTH(h.LOC) - 1)
+    ELSE h.LOC
+  END AS Country,
+  h.LOC AS SalesOffice, -- Use LOC as Sales Office
+  x.REGION AS SalesOrganization, -- Map from cross-reference table
+  x.REGION AS PLANT, -- Map from cross-reference table (BD Plant)
   CASE 
-    WHEN o.PRODUCT IS NULL OR TRIM(o.PRODUCT) = '' THEN s.LOC
-    ELSE s.LOC
-  END AS SalesOffice,
-  
-  -- Sales Organization
-  COALESCE(o.SalesOrg, 'NONE') AS SalesOrganization,
-  
-  -- Plant
-  COALESCE(o.PlantDC, 'NONE') AS PLANT,
-  
-  -- Planning Partner based on DMDGROUP
-  CASE 
-    WHEN s.DMDGROUP = 'SALES' THEN 'R'
-    WHEN s.DMDGROUP = 'SAMPLES' THEN 'N'
-    WHEN s.DMDGROUP = 'CONSIGN' THEN 'C'
-    ELSE s.DMDGROUP
+    WHEN h.DMDGROUP = 'SALES' THEN 'R'
+    WHEN h.DMDGROUP = 'SAMPLES' THEN 'N'
+    WHEN h.DMDGROUP = 'CONSIGN' THEN 'C'
+    ELSE NULL
   END AS PlanningPartner,
-  
-  -- Distribution Channel (default)
-  '10' AS DistributionChannel,
-  
-  -- Customer Group (default)
-  '500' AS CustomerGroup,
-  
-  -- Ship-To Party (default)
-  'NONE' AS ShipToParty,
-  
-  -- Sold-to Party (default)
-  'NONE' AS SoldToParty,
-  
-  -- WW Business (default)
-  'None' AS WWBusiness,
-  
-  -- Strategy Center (default)
-  'None' AS StrategyCenter,
-  
-  -- Product Line (default)
-  'None' AS ProductLine,
-  
-  -- Planning Set (default)
-  'None' AS PlanningSet,
-  
-  -- Product Subset (default)
-  'None' AS ProductSubset,
-  
-  -- Item Category (default)
-  'None' AS ItemCategory,
-  
-  -- Sales Document Type (default)
-  'None' AS SalesDocumentType,
-  
-  -- Snapshot ID (system date/time)
-  DATE_FORMAT(CURRENT_TIMESTAMP(), 'yyyyMMddHH') AS SnapshotID,
-  
-  -- Cal Month (mapped from STARTDATE)
-  CAST(DATE_FORMAT(s.STARDATE, 'yyyyMM') AS DECIMAL(6,0)) AS CalMonth,
-  
-  -- Base Unit of Measure (default)
-  'EA' AS BaseUnitOfMeasure,
-  
-  -- Source System (default)
-  'JDAAPM' AS SourceSystem,
-  
-  -- Demand Quantity - MTS (when HISTSTREAM = Actual Sales Qty)
+  '10' AS DistributionChannel, -- Default value
+  '500' AS CustomerGroup, -- Default value
+  'NONE' AS ShipToParty, -- Default value
+  'NONE' AS SoldToParty, -- Default value
+  NULL AS WWBusiness, -- Default None
+  NULL AS StrategyCenter, -- Default None
+  NULL AS ProductLine, -- Default None
+  NULL AS PlanningSet, -- Default None
+  NULL AS ProductSubset, -- Default None
+  NULL AS ItemCategory, -- Default None
+  NULL AS SalesDocumentType, -- Default None
+  CURRENT_TIMESTAMP() AS SnapshotID, -- System date and time
+  TO_NUMBER(DATE_FORMAT(TO_DATE(h.STARTDATE, 'dd-MMM-yy'), 'yyyyMM')) AS CalMonth, -- Convert date to calendar month
+  'EA' AS BaseUnitOfMeasure, -- Default value
+  'JDAABC' AS SourceSystem, -- Default value
   CASE 
-    WHEN s.HISTSTREAM = 'Actual Sales Qty' THEN s.QTY
-    ELSE 0
+    WHEN h.HISTSTREAM = 'HIST' THEN h.QTY
+    ELSE NULL
   END AS DemandQuantityMTS,
-  
-  -- Total Demand (same as Demand Quantity)
   CASE 
-    WHEN s.HISTSTREAM = 'Actual Sales Qty' THEN s.QTY
-    ELSE 0
+    WHEN h.HISTSTREAM = 'HIST' THEN h.QTY
+    ELSE NULL
   END AS TotalDemand,
-  
-  -- Returns Qty - MTS (when HISTSTREAM = Return Qty)
   CASE 
-    WHEN s.HISTSTREAM = 'Return Qty' THEN s.QTY
-    ELSE 0
+    WHEN h.HISTSTREAM = 'RTNS' THEN h.QTY
+    ELSE NULL
   END AS ReturnsQtyMTS
-  
-FROM b_onc.sales s
-LEFT JOIN b_onc.sales_org o ON s.LOC = o.LOC;
+FROM b_um_xyz.ABC_onetime_history_sales_orders h
+LEFT JOIN b_um_xyz.ABC_onetime_history_sales_org_plant_xref x
+  ON h.DMDUNIT = x.Product AND h.LOC = x.LOC
+WHERE h.HISTSTREAM IN ('HIST', 'RTNS'); -- Filter for historical and returns data only
